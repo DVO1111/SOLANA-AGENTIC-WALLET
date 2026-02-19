@@ -141,7 +141,11 @@ export class AgenticWallet {
     );
 
     const transactions = await Promise.all(
-      signatures.map((sig) => this.connection.getTransaction(sig.signature))
+      signatures.map((sig) =>
+        this.connection.getTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0,
+        })
+      )
     );
 
     return transactions.filter((tx) => tx !== null);

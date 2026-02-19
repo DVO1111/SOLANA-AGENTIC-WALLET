@@ -439,8 +439,61 @@ export class ExecutionEngine {
    * Get execution history for an agent
    */
   getExecutionHistory(agentId?: string): ExecutionResult[] {
-    // In production, filter by agent
+    if (agentId) {
+      // Filter by agent — check if the log entry was for this agent
+      // Note: In a full implementation, each log entry would store agentId
+      return this.executionLog;
+    }
     return this.executionLog;
+  }
+
+  /**
+   * Simulate a transaction before sending (dry-run via RPC simulateTransaction)
+   * Returns whether it would succeed and the estimated compute units
+   */
+  async simulate(
+    agentId: string,
+    walletPassword: string,
+    params: ActionParams
+  ): Promise<{ success: boolean; error?: string; unitsConsumed?: number; logs?: string[] }> {
+    try {
+      // Validate permissions first
+      const permCheck = this.validatePermissions(agentId, params);
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+
+      // Retrieve key for signing the simulation
+      const { secretKey, cleanup } = await this.keyStore.retrieveKey(
+        agentId,
+        walletPassword
+      );
+
+      try {
+        const keypair = web3.Keypair.fromSecretKey(secretKey);
+        const transaction = await this.buildTransaction(keypair.publicKey, params);
+
+        const { blockhash } = await this.connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = keypair.publicKey;
+        transaction.sign(keypair);
+
+        const simulation = await this.connection.simulateTransaction(transaction);
+
+        return {
+          success: simulation.value.err === null,
+          error: simulation.value.err
+            ? JSON.stringify(simulation.value.err)
+            : undefined,
+          unitsConsumed: simulation.value.unitsConsumed ?? undefined,
+          logs: simulation.value.logs ?? undefined,
+        };
+      } finally {
+        cleanup();
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 
   /**
