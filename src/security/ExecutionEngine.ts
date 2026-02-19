@@ -385,10 +385,18 @@ export class ExecutionEngine {
         throw new Error(`Unknown action: ${params.action}`);
     }
 
-    // Add memo if provided
+    // Add memo if provided (using SPL Memo Program v2)
     if (params.memo) {
-      // Note: Would need @solana/spl-memo for proper memo program
-      console.log(`[Memo] ${params.memo}`);
+      const MEMO_PROGRAM_ID = new web3.PublicKey(
+        'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
+      );
+      transaction.add(
+        new web3.TransactionInstruction({
+          keys: [{ pubkey: fromPubkey, isSigner: true, isWritable: false }],
+          programId: MEMO_PROGRAM_ID,
+          data: Buffer.from(params.memo, 'utf-8'),
+        })
+      );
     }
 
     return transaction;

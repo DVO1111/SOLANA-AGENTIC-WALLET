@@ -18,7 +18,8 @@
     "simulate": "ts-node src/scripts/multiAgentSimulation.ts",
     "agent-simulation": "ts-node src/agents/simulation.ts",
     "devnet:airdrop": "ts-node src/scripts/airdrop.ts",
-    "devnet:check": "ts-node src/scripts/checkBalance.ts"
+    "devnet:check": "ts-node src/scripts/checkBalance.ts",
+    "token-demo": "ts-node src/scripts/tokenInteraction.ts"
   },
   "keywords": [
     "solana",

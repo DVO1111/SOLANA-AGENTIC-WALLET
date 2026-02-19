@@ -89,9 +89,9 @@ export class AgenticWallet {
    */
   async sendTransaction(transaction: web3.Transaction): Promise<string> {
     try {
-      // Set recent blockhash
-      const blockHash = await this.connection.getRecentBlockhash();
-      transaction.recentBlockhash = blockHash.blockhash;
+      // Set latest blockhash
+      const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
       transaction.feePayer = this.publicKey;
 
       // Sign transaction
@@ -103,7 +103,11 @@ export class AgenticWallet {
       );
 
       // Wait for confirmation
-      await this.connection.confirmTransaction(signature);
+      await this.connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      });
 
       return signature;
     } catch (error) {

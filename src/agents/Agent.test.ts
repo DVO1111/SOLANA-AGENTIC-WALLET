@@ -35,7 +35,7 @@ describe('Agent', () => {
   test('should get wallet address', () => {
     const address = agent.getWalletAddress();
     expect(address).toBeDefined();
-    expect(address).toMatch(/^[1-9A-HJ-NP-Z]{32,35}$/);
+    expect(address).toMatch(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);  // Solana base58 address
   });
 
   test('should get agent config', () => {
@@ -62,9 +62,12 @@ describe('Agent', () => {
 
     expect(stats.id).toBe('test-agent-1');
     expect(stats.name).toBe('Test Trading Bot');
+    expect(stats.strategy).toBe('trading');
+    expect(stats.state).toBe('idle');
     expect(stats.walletAddress).toBeDefined();
     expect(typeof stats.balance).toBe('number');
     expect(stats.totalTransactions).toBeGreaterThanOrEqual(0);
+    expect(stats.consecutiveFailures).toBe(0);
   });
 
   test('should maintain transaction log', async () => {
@@ -93,5 +96,74 @@ describe('Agent', () => {
       const testAgent = new Agent(config, wallet, tokenManager);
       expect(testAgent.getConfig().strategy).toBe(strategy);
     });
+  });
+
+  test('should score decisions using rule-based engine', () => {
+    const decision: any = {
+      type: 'transfer',
+      targetAddress: web3.Keypair.generate().publicKey.toString(),
+      amount: 0.1,
+      timestamp: Date.now(),
+    };
+
+    const ctx = {
+      balance: 1.0,
+      lastTradeTimestamp: 0,
+      totalTrades: 0,
+      successRate: 1,
+      averageTradeSize: 0,
+      consecutiveFailures: 0,
+      cooldownUntil: 0,
+    };
+
+    const score = agent.scoreDecision(decision, ctx);
+    expect(score).toBeGreaterThan(0);
+    expect(score).toBeLessThanOrEqual(1);
+  });
+
+  test('should reject decisions when in circuit breaker (3+ failures)', () => {
+    const decision: any = {
+      type: 'transfer',
+      amount: 0.1,
+      timestamp: Date.now(),
+    };
+
+    const ctx = {
+      balance: 1.0,
+      lastTradeTimestamp: 0,
+      totalTrades: 5,
+      successRate: 0.2,
+      averageTradeSize: 0.1,
+      consecutiveFailures: 3,
+      cooldownUntil: 0,
+    };
+
+    const score = agent.scoreDecision(decision, ctx);
+    expect(score).toBe(0);
+  });
+
+  test('should reject decisions that spend > 90% of balance', () => {
+    const decision: any = {
+      type: 'transfer',
+      amount: 0.95,
+      timestamp: Date.now(),
+    };
+
+    const ctx = {
+      balance: 1.0,
+      lastTradeTimestamp: 0,
+      totalTrades: 0,
+      successRate: 1,
+      averageTradeSize: 0,
+      consecutiveFailures: 0,
+      cooldownUntil: 0,
+    };
+
+    const score = agent.scoreDecision(decision, ctx);
+    expect(score).toBe(0);
+  });
+
+  test('should have idle state initially', () => {
+    expect(agent.getState()).toBe('idle');
   });
 });

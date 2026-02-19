@@ -97,44 +97,58 @@ export class MultiAgentTestHarness {
   }
 
   /**
-   * Run a trading simulation round
+   * Run a trading simulation round using rule-based strategy engine
    */
   async runSimulationRound(roundNumber: number): Promise<void> {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`Simulation Round ${roundNumber}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    for (const agent of this.agents.values()) {
+    // Collect all agent addresses for peer-to-peer trading
+    const agentEntries = Array.from(this.agents.entries());
+    const allAddresses = agentEntries.map(([, agent]) => agent.getWalletAddress());
+
+    for (const [agentId, agent] of agentEntries) {
       const config = agent.getConfig();
       const balance = await agent.getBalance();
+      const state = agent.getState();
 
-      console.log(`\n[${config.name}] Balance: ${balance} SOL`);
+      console.log(`\n[${config.name}] Balance: ${balance.toFixed(6)} SOL | State: ${state}`);
 
-      // Simulate decision based on strategy
-      if (config.strategy === 'trading' && balance > 0.1) {
-        // Simulate a trading decision
-        const decision: Decision = {
-          type: 'transfer',
-          targetAddress: web3.Keypair.generate().publicKey.toString(),
-          amount: Math.min(0.01, balance * 0.1),
+      // Use the agent's built-in smart decision generation
+      // Pass peer addresses so trades go to other agents, not random addresses
+      const peerAddresses = allAddresses.filter(addr => addr !== agent.getWalletAddress());
+      const decision = await agent.generateDecision(peerAddresses);
+
+      if (decision) {
+        console.log(`  Strategy: ${config.strategy} | Decision: ${decision.type} ${(decision.amount || 0).toFixed(4)} SOL`);
+        if (decision.metadata?.reason) {
+          console.log(`  Reason: ${decision.metadata.reason}`);
+        }
+
+        this.simulationLog.push({
           timestamp: Date.now(),
-          metadata: { roundNumber },
-        };
+          agentId,
+          action: 'DECISION_GENERATED',
+          details: { decision, score: 'auto' },
+        });
 
-        await this.simulateAgentDecision(config.id, decision);
-      } else if (
-        config.strategy === 'liquidity-provider' &&
-        balance > 0.05
-      ) {
-        // Simulate a liquidity provision decision
-        const decision: Decision = {
-          type: 'custom',
-          amount: Math.min(0.05, balance * 0.2),
+        const result = await agent.evaluateDecision(decision);
+
+        this.simulationLog.push({
           timestamp: Date.now(),
-          metadata: { roundNumber, strategyType: 'liquidity-provision' },
-        };
-
-        await this.simulateAgentDecision(config.id, decision);
+          agentId,
+          action: result ? 'DECISION_EXECUTED' : 'DECISION_REJECTED',
+          details: { decision, result },
+        });
+      } else {
+        console.log(`  No action taken (insufficient balance, cooldown, or circuit breaker)`);
+        this.simulationLog.push({
+          timestamp: Date.now(),
+          agentId,
+          action: 'NO_ACTION',
+          details: { balance, state },
+        });
       }
     }
   }
