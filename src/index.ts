@@ -1,6 +1,8 @@
 import * as web3 from '@solana/web3.js';
 import { AgenticWallet } from './wallet/AgenticWallet';
 import { TokenManager } from './wallet/TokenManager';
+import { TokenExtensionsManager } from './wallet/TokenExtensionsManager';
+import type { TokenExtension, ExtendedMintConfig, ExtendedMintResult } from './wallet/TokenExtensionsManager';
 import { Agent, AgentConfig } from './agents/Agent';
 import type { AgentState, StrategyContext } from './agents/Agent';
 import { MultiAgentTestHarness } from './agents/simulation';
@@ -19,8 +21,8 @@ import type {
 } from './security';
 
 // Basic wallet exports
-export { AgenticWallet, TokenManager, Agent, MultiAgentTestHarness };
-export type { AgentConfig, AgentState, StrategyContext };
+export { AgenticWallet, TokenManager, TokenExtensionsManager, Agent, MultiAgentTestHarness };
+export type { AgentConfig, AgentState, StrategyContext, TokenExtension, ExtendedMintConfig, ExtendedMintResult };
 
 // Secure wallet exports
 export {
