@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { walletApi } from '../api'
+import { IconPlus, IconDroplet, IconSend, IconRefresh, IconWallet } from '../Icons'
 
 interface WalletInfo {
   address: string
@@ -33,7 +34,7 @@ export default function Wallets() {
 
   async function createWallet() {
     setLoading(true)
-    setStatus({ type: 'loading', msg: 'Creating wallet...' })
+    setStatus({ type: 'loading', msg: 'Generating keypair...' })
     try {
       const result = await walletApi.create()
       setStatus({ type: 'success', msg: `Wallet created: ${result.address}` })
@@ -48,7 +49,7 @@ export default function Wallets() {
     setStatus({ type: 'loading', msg: `Requesting airdrop for ${address.slice(0, 8)}...` })
     try {
       const result = await walletApi.airdrop(address, 1)
-      setStatus({ type: 'success', msg: `Airdropped 1 SOL! New balance: ${result.newBalance.toFixed(4)} SOL` })
+      setStatus({ type: 'success', msg: `Airdropped 1 SOL — New balance: ${result.newBalance.toFixed(4)} SOL` })
       await refreshWallets()
     } catch (e: any) {
       setStatus({ type: 'error', msg: e.message })
@@ -57,14 +58,14 @@ export default function Wallets() {
 
   async function sendSOL() {
     if (!sendForm.from || !sendForm.to) {
-      setStatus({ type: 'error', msg: 'Please fill in all fields' })
+      setStatus({ type: 'error', msg: 'Select both wallets' })
       return
     }
     setLoading(true)
-    setStatus({ type: 'loading', msg: 'Sending SOL...' })
+    setStatus({ type: 'loading', msg: 'Signing transaction...' })
     try {
       const result = await walletApi.send(sendForm.from, sendForm.to, parseFloat(sendForm.amount))
-      setStatus({ type: 'success', msg: `Sent ${sendForm.amount} SOL! Sig: ${result.signature.slice(0, 16)}...` })
+      setStatus({ type: 'success', msg: `Sent ${sendForm.amount} SOL — Sig: ${result.signature.slice(0, 20)}...` })
       await refreshWallets()
     } catch (e: any) {
       setStatus({ type: 'error', msg: e.message })
@@ -75,7 +76,7 @@ export default function Wallets() {
   return (
     <div>
       <div className="page-header">
-        <h2>Wallet Management</h2>
+        <h2>Wallets</h2>
         <p>Create and manage Solana wallets on devnet</p>
       </div>
 
@@ -86,24 +87,29 @@ export default function Wallets() {
         </div>
       )}
 
+      {/* ── Create ─────────────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
-          <h3>Create Wallet</h3>
+          <div>
+            <h3>Create Wallet</h3>
+            <span className="card-subtitle">Generate a new Solana keypair for this session</span>
+          </div>
           <button className="btn btn-primary" onClick={createWallet} disabled={loading}>
-            {loading ? <><span className="spinner" /> Creating...</> : '+ New Wallet'}
+            {loading
+              ? <><span className="spinner" /> Creating...</>
+              : <><IconPlus size={15} /> New Wallet</>
+            }
           </button>
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-          Generate a new Solana keypair. The wallet exists in-memory for this session.
-        </p>
       </div>
 
+      {/* ── Wallet List ────────────────────────────────────── */}
       {wallets.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h3>Session Wallets ({wallets.length})</h3>
+            <h3>Session Wallets <span className="badge badge-neutral">{wallets.length}</span></h3>
             <button className="btn btn-sm btn-secondary" onClick={refreshWallets}>
-              ↻ Refresh
+              <IconRefresh size={14} /> Refresh
             </button>
           </div>
           <div className="table-wrapper">
@@ -112,17 +118,19 @@ export default function Wallets() {
                 <tr>
                   <th>Address</th>
                   <th>Balance (SOL)</th>
-                  <th>Actions</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {wallets.map((w) => (
                   <tr key={w.address}>
                     <td><span className="address">{w.address}</span></td>
-                    <td style={{ fontWeight: 600 }}>{w.balance.toFixed(4)}</td>
                     <td>
+                      <span className="font-mono font-bold">{w.balance.toFixed(4)}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
                       <button className="btn btn-sm btn-secondary" onClick={() => airdrop(w.address)}>
-                        💧 Airdrop 1 SOL
+                        <IconDroplet size={13} /> Airdrop 1 SOL
                       </button>
                     </td>
                   </tr>
@@ -133,14 +141,18 @@ export default function Wallets() {
         </div>
       )}
 
+      {/* ── Send SOL ───────────────────────────────────────── */}
       {wallets.length >= 2 && (
         <div className="card">
           <div className="card-header">
-            <h3>Send SOL</h3>
+            <div>
+              <h3>Transfer SOL</h3>
+              <span className="card-subtitle">Send SOL between session wallets</span>
+            </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>From Wallet</label>
+              <label>From</label>
               <select
                 className="form-select"
                 value={sendForm.from}
@@ -155,7 +167,7 @@ export default function Wallets() {
               </select>
             </div>
             <div className="form-group">
-              <label>To Address</label>
+              <label>To</label>
               <select
                 className="form-select"
                 value={sendForm.to}
@@ -170,7 +182,7 @@ export default function Wallets() {
               </select>
             </div>
           </div>
-          <div className="form-group" style={{ maxWidth: '200px' }}>
+          <div className="form-group" style={{ maxWidth: 200 }}>
             <label>Amount (SOL)</label>
             <input
               className="form-input"
@@ -182,15 +194,19 @@ export default function Wallets() {
             />
           </div>
           <button className="btn btn-primary" onClick={sendSOL} disabled={loading}>
-            Send SOL
+            <IconSend size={15} /> Send
           </button>
         </div>
       )}
 
+      {/* ── Empty ──────────────────────────────────────────── */}
       {wallets.length === 0 && (
         <div className="empty-state">
-          <div className="icon">👛</div>
-          <p>No wallets yet. Create one to get started!</p>
+          <div className="empty-icon"><IconWallet size={24} /></div>
+          <p>No wallets yet. Create one to get started.</p>
+          <button className="btn btn-primary" onClick={createWallet} disabled={loading}>
+            <IconPlus size={15} /> Create First Wallet
+          </button>
         </div>
       )}
     </div>

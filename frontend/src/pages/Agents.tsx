@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { agentApi, simulationApi } from '../api'
+import { IconCpu, IconPlay, IconRefresh, IconDroplet, IconPlus, IconTrendingUp, IconCheck, IconX } from '../Icons'
 
 interface AgentInfo {
   id: string
@@ -61,7 +62,7 @@ export default function Agents() {
         form.strategy,
         parseFloat(form.maxTransactionSize)
       )
-      setStatus({ type: 'success', msg: `Agent "${result.name}" registered! Wallet: ${result.walletAddress.slice(0, 12)}...` })
+      setStatus({ type: 'success', msg: `Agent "${result.name}" registered — Wallet: ${result.walletAddress.slice(0, 16)}...` })
       setForm({ name: '', strategy: 'trading', maxTransactionSize: '1' })
       await refreshAgents()
     } catch (e: any) {
@@ -71,10 +72,10 @@ export default function Agents() {
   }
 
   async function fundAgent(id: string) {
-    setStatus({ type: 'loading', msg: `Funding agent ${id.slice(0, 16)}...` })
+    setStatus({ type: 'loading', msg: 'Funding agent...' })
     try {
       const result = await agentApi.fund(id)
-      setStatus({ type: 'success', msg: `Funded! Balance: ${result.balance.toFixed(4)} SOL` })
+      setStatus({ type: 'success', msg: `Funded — Balance: ${result.balance.toFixed(4)} SOL` })
       await refreshAgents()
     } catch (e: any) {
       setStatus({ type: 'error', msg: e.message })
@@ -87,7 +88,7 @@ export default function Agents() {
     try {
       const result = await simulationApi.run()
       setSimResults(result)
-      setStatus({ type: 'success', msg: `Round #${result.round} complete with ${result.results.length} agents` })
+      setStatus({ type: 'success', msg: `Round #${result.round} complete — ${result.results.length} agents` })
       await refreshAgents()
     } catch (e: any) {
       setStatus({ type: 'error', msg: e.message })
@@ -95,12 +96,12 @@ export default function Agents() {
     setLoading(false)
   }
 
-  const strategyColor = (s: string) => {
+  const strategyBadge = (s: string) => {
     switch (s) {
       case 'trading': return 'badge-info'
       case 'liquidity-provider': return 'badge-purple'
       case 'arbitrage': return 'badge-warning'
-      default: return 'badge-info'
+      default: return 'badge-neutral'
     }
   }
 
@@ -118,9 +119,13 @@ export default function Agents() {
         </div>
       )}
 
+      {/* ── Register ───────────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
-          <h3>Register New Agent</h3>
+          <div>
+            <h3>Register Agent</h3>
+            <span className="card-subtitle">Configure an autonomous trading agent</span>
+          </div>
         </div>
         <div className="form-row">
           <div className="form-group">
@@ -145,8 +150,8 @@ export default function Agents() {
             </select>
           </div>
         </div>
-        <div className="form-group" style={{ maxWidth: '200px' }}>
-          <label>Max Transaction Size (SOL)</label>
+        <div className="form-group" style={{ maxWidth: 200 }}>
+          <label>Max Transaction (SOL)</label>
           <input
             className="form-input"
             type="number"
@@ -157,21 +162,25 @@ export default function Agents() {
           />
         </div>
         <button className="btn btn-primary" onClick={registerAgent} disabled={loading}>
-          🤖 Register Agent
+          <IconPlus size={15} /> Register Agent
         </button>
       </div>
 
+      {/* ── Agent List ─────────────────────────────────────── */}
       {agents.length > 0 && (
         <>
           <div className="card">
             <div className="card-header">
-              <h3>Active Agents ({agents.length})</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <h3>Active Agents <span className="badge badge-neutral">{agents.length}</span></h3>
+              <div className="btn-group">
                 <button className="btn btn-sm btn-secondary" onClick={refreshAgents}>
-                  ↻ Refresh
+                  <IconRefresh size={13} /> Refresh
                 </button>
                 <button className="btn btn-sm btn-primary" onClick={runSimulation} disabled={loading}>
-                  {loading ? <><span className="spinner" /> Running...</> : '▶ Run Simulation'}
+                  {loading
+                    ? <><span className="spinner" /> Running...</>
+                    : <><IconPlay size={13} /> Run Simulation</>
+                  }
                 </button>
               </div>
             </div>
@@ -186,15 +195,15 @@ export default function Agents() {
                     <th>Decisions</th>
                     <th>Success</th>
                     <th>Failed</th>
-                    <th>Actions</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agents.map((agent) => (
                     <tr key={agent.id}>
-                      <td style={{ fontWeight: 600 }}>{agent.name}</td>
+                      <td className="font-bold">{agent.name}</td>
                       <td>
-                        <span className={`badge ${strategyColor(agent.strategy)}`}>
+                        <span className={`badge ${strategyBadge(agent.strategy)}`}>
                           {agent.strategy}
                         </span>
                       </td>
@@ -203,17 +212,17 @@ export default function Agents() {
                           {agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
                         </span>
                       </td>
-                      <td>{agent.balance.toFixed(4)}</td>
-                      <td>{agent.stats.totalDecisions}</td>
+                      <td className="font-mono">{agent.balance.toFixed(4)}</td>
+                      <td className="font-mono">{agent.stats.totalDecisions}</td>
                       <td>
                         <span className="badge badge-success">{agent.stats.successfulTxns}</span>
                       </td>
                       <td>
                         <span className="badge badge-danger">{agent.stats.failedTxns}</span>
                       </td>
-                      <td>
+                      <td style={{ textAlign: 'right' }}>
                         <button className="btn btn-sm btn-secondary" onClick={() => fundAgent(agent.id)}>
-                          💧 Fund
+                          <IconDroplet size={13} /> Fund
                         </button>
                       </td>
                     </tr>
@@ -223,30 +232,31 @@ export default function Agents() {
             </div>
           </div>
 
+          {/* ── Simulation Results ──────────────────────────── */}
           {simResults && (
             <div className="card">
               <div className="card-header">
-                <h3>Simulation Round #{simResults.round}</h3>
+                <h3>Round #{simResults.round} Results</h3>
               </div>
-              <div className="stat-grid">
+              <div className="result-grid">
                 {simResults.results.map((r) => (
-                  <div className="stat-card" key={r.agentId}>
-                    <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '8px' }}>{r.name}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                      <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Decisions:</span>{' '}
-                        <span style={{ fontWeight: 600 }}>{r.totalDecisions}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--text-muted)' }}>Volume:</span>{' '}
-                        <span style={{ fontWeight: 600 }}>{r.totalVolume.toFixed(4)}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--success)' }}>✓ {r.successfulTxns}</span>
-                      </div>
-                      <div>
-                        <span style={{ color: 'var(--danger)' }}>✗ {r.failedTxns}</span>
-                      </div>
+                  <div className="result-card" key={r.agentId}>
+                    <h4>{r.name}</h4>
+                    <div className="result-row">
+                      <span className="result-label">Decisions</span>
+                      <span className="result-value">{r.totalDecisions}</span>
+                    </div>
+                    <div className="result-row">
+                      <span className="result-label">Volume</span>
+                      <span className="result-value">{r.totalVolume.toFixed(4)}</span>
+                    </div>
+                    <div className="result-row">
+                      <span className="result-label">Success</span>
+                      <span className="result-value text-success">{r.successfulTxns}</span>
+                    </div>
+                    <div className="result-row">
+                      <span className="result-label">Failed</span>
+                      <span className="result-value text-danger">{r.failedTxns}</span>
                     </div>
                   </div>
                 ))}
@@ -256,10 +266,11 @@ export default function Agents() {
         </>
       )}
 
+      {/* ── Empty ──────────────────────────────────────────── */}
       {agents.length === 0 && (
         <div className="empty-state">
-          <div className="icon">🤖</div>
-          <p>No agents registered yet. Create your first autonomous agent!</p>
+          <div className="empty-icon"><IconCpu size={24} /></div>
+          <p>No agents registered. Create your first autonomous agent.</p>
         </div>
       )}
     </div>

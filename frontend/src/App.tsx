@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconGrid, IconWallet, IconCpu, IconHexagon, IconShield } from './Icons'
 import Dashboard from './pages/Dashboard'
 import Wallets from './pages/Wallets'
 import Agents from './pages/Agents'
@@ -7,12 +8,12 @@ import Security from './pages/Security'
 
 type Page = 'dashboard' | 'wallets' | 'agents' | 'tokens' | 'security'
 
-const navItems: { id: Page; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'wallets', label: 'Wallets', icon: '👛' },
-  { id: 'agents', label: 'Agents', icon: '🤖' },
-  { id: 'tokens', label: 'Token Extensions', icon: '🪙' },
-  { id: 'security', label: 'Security', icon: '🔒' },
+const navItems: { id: Page; label: string; icon: React.ReactNode }[] = [
+  { id: 'dashboard', label: 'Dashboard',        icon: <IconGrid size={18} /> },
+  { id: 'wallets',   label: 'Wallets',           icon: <IconWallet size={18} /> },
+  { id: 'agents',    label: 'Agents',             icon: <IconCpu size={18} /> },
+  { id: 'tokens',    label: 'Token Extensions',   icon: <IconHexagon size={18} /> },
+  { id: 'security',  label: 'Security',           icon: <IconShield size={18} /> },
 ]
 
 export default function App() {
@@ -21,10 +22,10 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard onNavigate={setPage} />
-      case 'wallets': return <Wallets />
-      case 'agents': return <Agents />
-      case 'tokens': return <Tokens />
-      case 'security': return <Security />
+      case 'wallets':   return <Wallets />
+      case 'agents':    return <Agents />
+      case 'tokens':    return <Tokens />
+      case 'security':  return <Security />
     }
   }
 
@@ -32,9 +33,17 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <h1>◎ Agentic Wallet</h1>
-          <p>Solana AI Wallet Infrastructure</p>
+          <h1>
+            <span className="brand-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </span>
+            Agentic Wallet
+          </h1>
+          <p>Solana Infrastructure</p>
         </div>
+
         <nav className="sidebar-nav">
           {navItems.map((item) => (
             <button
@@ -47,6 +56,7 @@ export default function App() {
             </button>
           ))}
         </nav>
+
         <div className="sidebar-footer">
           <span className="network-badge">
             <span className="network-dot" />
@@ -54,7 +64,8 @@ export default function App() {
           </span>
         </div>
       </aside>
-      <main className="main-content">
+
+      <main className="main-content" key={page}>
         {renderPage()}
       </main>
     </div>

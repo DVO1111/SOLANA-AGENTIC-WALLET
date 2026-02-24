@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import { securityApi } from '../api'
+import {
+  IconShield, IconRefresh, IconLock, IconShieldCheck,
+  IconClock, IconBarChart, IconZap, IconFlask,
+} from '../Icons'
 
 interface LogEntry {
   timestamp: string
@@ -43,7 +47,7 @@ export default function Security() {
       case 'success': return 'badge-success'
       case 'failed': return 'badge-danger'
       case 'blocked': return 'badge-warning'
-      default: return 'badge-info'
+      default: return 'badge-neutral'
     }
   }
 
@@ -51,75 +55,86 @@ export default function Security() {
     <div>
       <div className="page-header">
         <h2>Security & Audit</h2>
-        <p>Execution logs, permission enforcement, and rate limiting overview</p>
+        <p>Execution logs, permission enforcement, and rate limiting</p>
       </div>
 
+      {/* ── Stats ──────────────────────────────────────────── */}
       <div className="stat-grid">
         <div className="stat-card">
+          <div className="stat-icon violet"><IconShield size={18} /></div>
           <div className="stat-label">Total Events</div>
           <div className="stat-value">{stats.total}</div>
         </div>
         <div className="stat-card">
+          <div className="stat-icon green"><IconShieldCheck size={18} /></div>
           <div className="stat-label">Successful</div>
-          <div className="stat-value accent">{stats.success}</div>
+          <div className="stat-value">{stats.success}</div>
         </div>
         <div className="stat-card">
+          <div className="stat-icon" style={{ background: 'var(--danger-muted)', color: 'var(--danger)' }}>
+            <IconZap size={18} />
+          </div>
           <div className="stat-label">Failed</div>
-          <div className="stat-value" style={{ color: 'var(--danger)' }}>{stats.failed}</div>
+          <div className="stat-value">{stats.failed}</div>
         </div>
         <div className="stat-card">
+          <div className="stat-icon amber"><IconLock size={18} /></div>
           <div className="stat-label">Blocked</div>
-          <div className="stat-value warning">{stats.blocked}</div>
+          <div className="stat-value">{stats.blocked}</div>
         </div>
       </div>
 
+      {/* ── Architecture ───────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
           <h3>Security Architecture</h3>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          <SecurityFeature
-            icon="🔐"
-            title="AES-256-GCM Encryption"
-            desc="Private keys encrypted at rest with PBKDF2 key derivation"
-          />
-          <SecurityFeature
-            icon="🛡️"
-            title="Permission Scoping"
-            desc="Per-agent permissions: transfer, swap, stake, custom actions"
-          />
-          <SecurityFeature
-            icon="⏱️"
-            title="Rate Limiting"
-            desc="Configurable transactions per minute per agent"
-          />
-          <SecurityFeature
-            icon="📊"
-            title="Volume Tracking"
-            desc="Daily volume caps with automatic reset"
-          />
-          <SecurityFeature
-            icon="🔄"
-            title="Circuit Breaker"
-            desc="Auto-disable after consecutive failures"
-          />
-          <SecurityFeature
-            icon="🧪"
-            title="Tx Simulation"
-            desc="Dry-run transactions via simulateTransaction before spending SOL"
-          />
+        <div className="feature-grid">
+          <div className="feature-card">
+            <div className="feature-icon violet"><IconLock size={18} /></div>
+            <h4>AES-256-GCM Encryption</h4>
+            <p>Private keys encrypted at rest with PBKDF2 key derivation</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon blue"><IconShieldCheck size={18} /></div>
+            <h4>Permission Scoping</h4>
+            <p>Per-agent permissions: transfer, swap, stake, custom actions</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon amber"><IconClock size={18} /></div>
+            <h4>Rate Limiting</h4>
+            <p>Configurable transactions per minute per agent</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon green"><IconBarChart size={18} /></div>
+            <h4>Volume Tracking</h4>
+            <p>Daily volume caps with automatic reset</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon red"><IconZap size={18} /></div>
+            <h4>Circuit Breaker</h4>
+            <p>Auto-disable agents after consecutive failures</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon violet"><IconFlask size={18} /></div>
+            <h4>Tx Simulation</h4>
+            <p>Dry-run via simulateTransaction before spending SOL</p>
+          </div>
         </div>
       </div>
 
+      {/* ── Execution Log ──────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
-          <h3>Execution Log ({filteredLogs.length})</h3>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button className="btn btn-sm btn-secondary" onClick={loadData}>↻ Refresh</button>
+          <h3>Execution Log <span className="badge badge-neutral">{filteredLogs.length}</span></h3>
+          <div className="btn-group">
+            <button className="btn btn-sm btn-secondary" onClick={loadData}>
+              <IconRefresh size={13} /> Refresh
+            </button>
             {['all', 'success', 'failed', 'blocked'].map((f) => (
               <button
                 key={f}
-                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
+                className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setFilter(f)}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -130,9 +145,9 @@ export default function Security() {
 
         {filteredLogs.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">📋</div>
+            <div className="empty-icon"><IconShield size={24} /></div>
             <p>{logs.length === 0
-              ? 'No events recorded yet. Interact with the wallet to generate logs.'
+              ? 'No events recorded. Interact with the wallet to generate logs.'
               : 'No events match this filter.'
             }</p>
           </div>
@@ -151,21 +166,20 @@ export default function Security() {
               <tbody>
                 {[...filteredLogs].reverse().map((log, i) => (
                   <tr key={i}>
-                    <td style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    <td className="font-mono text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </td>
-                    <td style={{ fontWeight: 600, fontSize: '13px' }}>{log.action}</td>
+                    <td className="font-bold text-sm">{log.action}</td>
                     <td>
                       <span className={`badge ${statusBadge(log.status)}`}>{log.status}</span>
                     </td>
                     <td>
-                      {log.agent ? (
-                        <span className="address-short">{log.agent.slice(0, 16)}...</span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
-                      )}
+                      {log.agent
+                        ? <span className="address-short">{log.agent.slice(0, 16)}...</span>
+                        : <span className="text-tertiary">—</span>
+                      }
                     </td>
-                    <td style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <td className="text-xs text-muted" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {log.details}
                     </td>
                   </tr>
@@ -175,21 +189,6 @@ export default function Security() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function SecurityFeature({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div style={{
-      background: 'var(--bg-primary)',
-      border: '1px solid var(--border)',
-      borderRadius: '10px',
-      padding: '14px',
-    }}>
-      <div style={{ fontSize: '20px', marginBottom: '6px' }}>{icon}</div>
-      <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '3px' }}>{title}</div>
-      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{desc}</div>
     </div>
   )
 }

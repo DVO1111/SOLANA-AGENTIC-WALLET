@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { tokenApi, walletApi } from '../api'
+import { IconHexagon, IconPlus } from '../Icons'
 
 interface MintRecord {
   mint: string
@@ -21,7 +22,6 @@ export default function Tokens() {
   const [form, setForm] = useState({
     walletAddress: '',
     decimals: '9',
-    // Extensions toggles
     transferFee: false,
     feeBasisPoints: '250',
     nonTransferable: false,
@@ -34,9 +34,7 @@ export default function Tokens() {
     metaUri: '',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     try {
@@ -54,48 +52,29 @@ export default function Tokens() {
 
   async function createMint() {
     if (!form.walletAddress) {
-      setStatus({ type: 'error', msg: 'Please select a wallet. Create one in the Wallets tab first.' })
+      setStatus({ type: 'error', msg: 'Select a wallet. Create one in the Wallets tab first.' })
       return
     }
-
-    const hasAnyExtension = form.transferFee || form.nonTransferable || form.mintCloseAuthority || form.interestBearing || form.metadata
-    if (!hasAnyExtension) {
-      setStatus({ type: 'error', msg: 'Select at least one extension to create a Token-2022 mint.' })
+    const hasExt = form.transferFee || form.nonTransferable || form.mintCloseAuthority || form.interestBearing || form.metadata
+    if (!hasExt) {
+      setStatus({ type: 'error', msg: 'Enable at least one extension.' })
       return
     }
-
     setLoading(true)
-    setStatus({ type: 'loading', msg: 'Creating Token-2022 mint on devnet... (this may take a moment)' })
-
+    setStatus({ type: 'loading', msg: 'Creating Token-2022 mint on devnet...' })
     try {
-      const config: any = {
-        decimals: parseInt(form.decimals),
-      }
-
+      const config: any = { decimals: parseInt(form.decimals) }
       if (form.transferFee) {
-        config.transferFee = {
-          feeBasisPoints: parseInt(form.feeBasisPoints),
-          maxFee: '1000000000',
-        }
+        config.transferFee = { feeBasisPoints: parseInt(form.feeBasisPoints), maxFee: '1000000000' }
       }
       if (form.nonTransferable) config.nonTransferable = true
       if (form.mintCloseAuthority) config.mintCloseAuthority = true
-      if (form.interestBearing) {
-        config.interestRate = parseInt(form.interestRate)
-      }
+      if (form.interestBearing) config.interestRate = parseInt(form.interestRate)
       if (form.metadata) {
-        config.metadata = {
-          name: form.metaName,
-          symbol: form.metaSymbol,
-          uri: form.metaUri,
-        }
+        config.metadata = { name: form.metaName, symbol: form.metaSymbol, uri: form.metaUri }
       }
-
       const result = await tokenApi.createMint(form.walletAddress, config)
-      setStatus({
-        type: 'success',
-        msg: `Mint created! Address: ${result.mint} | Extensions: [${result.extensions.join(', ')}]`,
-      })
+      setStatus({ type: 'success', msg: `Mint created: ${result.mint}` })
       await loadData()
     } catch (e: any) {
       setStatus({ type: 'error', msg: e.message })
@@ -103,24 +82,32 @@ export default function Tokens() {
     setLoading(false)
   }
 
-  const extensionBadgeColor = (ext: string) => {
+  const extBadge = (ext: string) => {
     switch (ext) {
       case 'transfer-fees': return 'badge-warning'
       case 'non-transferable': return 'badge-danger'
       case 'metadata': return 'badge-info'
       case 'mint-close-authority': return 'badge-purple'
       case 'interest-bearing': return 'badge-success'
-      case 'memo-required': return 'badge-info'
-      case 'permanent-delegate': return 'badge-danger'
-      default: return 'badge-info'
+      default: return 'badge-neutral'
     }
+  }
+
+  function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+      <label className={`toggle-item ${checked ? 'active' : ''}`} onClick={() => onChange(!checked)}>
+        <span className="toggle-dot" />
+        <input type="checkbox" checked={checked} readOnly />
+        {label}
+      </label>
+    )
   }
 
   return (
     <div>
       <div className="page-header">
-        <h2>Token Extensions (Token-2022)</h2>
-        <p>Create tokens with advanced extensions on Solana's Token-2022 program</p>
+        <h2>Token Extensions</h2>
+        <p>Create tokens with Token-2022 extensions on Solana devnet</p>
       </div>
 
       {status && (
@@ -130,15 +117,17 @@ export default function Tokens() {
         </div>
       )}
 
+      {/* ── Create Mint ────────────────────────────────────── */}
       <div className="card">
         <div className="card-header">
-          <h3>Create Extended Mint</h3>
+          <div>
+            <h3>Create Extended Mint</h3>
+            <span className="card-subtitle">Configure extensions for a new Token-2022 mint</span>
+          </div>
         </div>
 
         {wallets.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            ⚠️ No wallets available. Go to the Wallets tab to create and fund one first.
-          </p>
+          <p className="text-muted text-sm">No wallets available. Create and fund one in the Wallets tab first.</p>
         ) : (
           <>
             <div className="form-row">
@@ -171,37 +160,22 @@ export default function Tokens() {
 
             <div className="form-group">
               <label>Extensions</label>
-              <div className="checkbox-group">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={form.transferFee}
-                    onChange={(e) => setForm({ ...form, transferFee: e.target.checked })} />
-                  Transfer Fees
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={form.nonTransferable}
-                    onChange={(e) => setForm({ ...form, nonTransferable: e.target.checked })} />
-                  Non-Transferable (Soulbound)
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={form.mintCloseAuthority}
-                    onChange={(e) => setForm({ ...form, mintCloseAuthority: e.target.checked })} />
-                  Mint Close Authority
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={form.interestBearing}
-                    onChange={(e) => setForm({ ...form, interestBearing: e.target.checked })} />
-                  Interest-Bearing
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={form.metadata}
-                    onChange={(e) => setForm({ ...form, metadata: e.target.checked })} />
-                  On-chain Metadata
-                </label>
+              <div className="toggle-group">
+                <Toggle label="Transfer Fees" checked={form.transferFee}
+                  onChange={(v) => setForm({ ...form, transferFee: v })} />
+                <Toggle label="Non-Transferable" checked={form.nonTransferable}
+                  onChange={(v) => setForm({ ...form, nonTransferable: v })} />
+                <Toggle label="Mint Close Authority" checked={form.mintCloseAuthority}
+                  onChange={(v) => setForm({ ...form, mintCloseAuthority: v })} />
+                <Toggle label="Interest-Bearing" checked={form.interestBearing}
+                  onChange={(v) => setForm({ ...form, interestBearing: v })} />
+                <Toggle label="On-chain Metadata" checked={form.metadata}
+                  onChange={(v) => setForm({ ...form, metadata: v })} />
               </div>
             </div>
 
             {form.transferFee && (
-              <div className="form-group" style={{ maxWidth: '250px' }}>
+              <div className="form-group" style={{ maxWidth: 250 }}>
                 <label>Fee Basis Points (100 = 1%)</label>
                 <input
                   className="form-input"
@@ -215,8 +189,8 @@ export default function Tokens() {
             )}
 
             {form.interestBearing && (
-              <div className="form-group" style={{ maxWidth: '250px' }}>
-                <label>Interest Rate (basis points, 100 = 1%)</label>
+              <div className="form-group" style={{ maxWidth: 250 }}>
+                <label>Interest Rate (basis points)</label>
                 <input
                   className="form-input"
                   type="number"
@@ -248,19 +222,23 @@ export default function Tokens() {
               </div>
             )}
 
-            <div style={{ marginTop: '12px' }}>
+            <div className="mt-4">
               <button className="btn btn-primary" onClick={createMint} disabled={loading}>
-                {loading ? <><span className="spinner" /> Creating Mint...</> : '🪙 Create Token-2022 Mint'}
+                {loading
+                  ? <><span className="spinner" /> Creating Mint...</>
+                  : <><IconPlus size={15} /> Create Token-2022 Mint</>
+                }
               </button>
             </div>
           </>
         )}
       </div>
 
+      {/* ── Existing Mints ─────────────────────────────────── */}
       {mints.length > 0 && (
         <div className="card">
           <div className="card-header">
-            <h3>Created Mints ({mints.length})</h3>
+            <h3>Created Mints <span className="badge badge-neutral">{mints.length}</span></h3>
           </div>
           <div className="table-wrapper">
             <table>
@@ -277,14 +255,14 @@ export default function Tokens() {
                   <tr key={m.mint}>
                     <td><span className="address">{m.mint}</span></td>
                     <td>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      <div className="btn-group">
                         {m.extensions.map((ext) => (
-                          <span key={ext} className={`badge ${extensionBadgeColor(ext)}`}>{ext}</span>
+                          <span key={ext} className={`badge ${extBadge(ext)}`}>{ext}</span>
                         ))}
                       </div>
                     </td>
-                    <td>{m.decimals}</td>
-                    <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    <td className="font-mono">{m.decimals}</td>
+                    <td className="text-xs text-muted">
                       {new Date(m.createdAt).toLocaleTimeString()}
                     </td>
                   </tr>
@@ -295,10 +273,11 @@ export default function Tokens() {
         </div>
       )}
 
+      {/* ── Empty ──────────────────────────────────────────── */}
       {mints.length === 0 && wallets.length > 0 && (
         <div className="empty-state">
-          <div className="icon">🪙</div>
-          <p>No token mints created yet. Use the form above to create one!</p>
+          <div className="empty-icon"><IconHexagon size={24} /></div>
+          <p>No token mints created yet. Configure extensions above.</p>
         </div>
       )}
     </div>

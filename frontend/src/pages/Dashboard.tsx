@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { walletApi, agentApi, securityApi } from '../api'
+import {
+  IconWallet, IconCpu, IconLayers, IconShield,
+  IconPlus, IconArrowRight, IconHexagon,
+  IconKey, IconZap, IconRadio, IconGlobe, IconFlask, IconBarChart,
+} from '../Icons'
 
 interface DashboardProps {
   onNavigate: (page: 'wallets' | 'agents' | 'tokens' | 'security') => void
@@ -48,100 +53,96 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     <div>
       <div className="page-header">
         <h2>Dashboard</h2>
-        <p>Solana Agentic Wallet — AI-powered autonomous wallet infrastructure</p>
+        <p>AI-powered autonomous wallet infrastructure on Solana</p>
       </div>
 
+      {/* ── Stats ──────────────────────────────────────────── */}
       <div className="stat-grid">
-        <div className="stat-card" onClick={() => onNavigate('wallets')} style={{ cursor: 'pointer' }}>
+        <div className="stat-card clickable" onClick={() => onNavigate('wallets')}>
+          <div className="stat-icon violet"><IconWallet size={18} /></div>
           <div className="stat-label">Wallets</div>
-          <div className="stat-value accent">{loading ? '—' : stats.wallets}</div>
+          <div className="stat-value">{loading ? '–' : stats.wallets}</div>
         </div>
-        <div className="stat-card" onClick={() => onNavigate('agents')} style={{ cursor: 'pointer' }}>
+        <div className="stat-card clickable" onClick={() => onNavigate('agents')}>
+          <div className="stat-icon blue"><IconCpu size={18} /></div>
           <div className="stat-label">AI Agents</div>
-          <div className="stat-value purple">{loading ? '—' : stats.agents}</div>
+          <div className="stat-value">{loading ? '–' : stats.agents}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Total Balance (SOL)</div>
-          <div className="stat-value blue">{loading ? '—' : stats.totalBalance.toFixed(4)}</div>
+          <div className="stat-icon green"><IconLayers size={18} /></div>
+          <div className="stat-label">Total Balance</div>
+          <div className="stat-value">{loading ? '–' : `${stats.totalBalance.toFixed(2)}`}</div>
         </div>
-        <div className="stat-card" onClick={() => onNavigate('security')} style={{ cursor: 'pointer' }}>
+        <div className="stat-card clickable" onClick={() => onNavigate('security')}>
+          <div className="stat-icon amber"><IconShield size={18} /></div>
           <div className="stat-label">Security Events</div>
-          <div className="stat-value warning">{loading ? '—' : stats.securityEvents}</div>
+          <div className="stat-value">{loading ? '–' : stats.securityEvents}</div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Quick Actions</h3>
-        </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={() => onNavigate('wallets')}>
-            👛 Create Wallet
-          </button>
-          <button className="btn btn-secondary" onClick={() => onNavigate('agents')}>
-            🤖 Register Agent
-          </button>
-          <button className="btn btn-secondary" onClick={() => onNavigate('tokens')}>
-            🪙 Create Token
-          </button>
-          <button className="btn btn-secondary" onClick={() => onNavigate('security')}>
-            🔒 View Logs
-          </button>
-        </div>
+      {/* ── Quick Actions ──────────────────────────────────── */}
+      <div className="section-label">Quick Actions</div>
+      <div className="action-grid" style={{ marginBottom: 28 }}>
+        <button className="action-card" onClick={() => onNavigate('wallets')}>
+          <div className="action-icon" style={{ background: 'var(--accent-muted)', color: 'var(--accent-text)' }}>
+            <IconPlus size={18} />
+          </div>
+          Create Wallet
+        </button>
+        <button className="action-card" onClick={() => onNavigate('agents')}>
+          <div className="action-icon" style={{ background: 'var(--info-muted)', color: 'var(--info)' }}>
+            <IconCpu size={18} />
+          </div>
+          Register Agent
+        </button>
+        <button className="action-card" onClick={() => onNavigate('tokens')}>
+          <div className="action-icon" style={{ background: 'var(--warning-muted)', color: 'var(--warning)' }}>
+            <IconHexagon size={18} />
+          </div>
+          Create Token
+        </button>
+        <button className="action-card" onClick={() => onNavigate('security')}>
+          <div className="action-icon" style={{ background: 'var(--success-muted)', color: 'var(--success)' }}>
+            <IconBarChart size={18} />
+          </div>
+          View Logs
+        </button>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Architecture Overview</h3>
+      {/* ── Architecture ───────────────────────────────────── */}
+      <div className="section-label">Architecture</div>
+      <div className="feature-grid">
+        <div className="feature-card">
+          <div className="feature-icon violet"><IconKey size={18} /></div>
+          <h4>Wallet Management</h4>
+          <p>Create, fund, and manage Solana wallets with full keypair control and balance tracking</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
-          <FeatureCard
-            icon="🔑"
-            title="Wallet Management"
-            desc="Create, fund, and manage Solana wallets with full keypair control"
-          />
-          <FeatureCard
-            icon="🤖"
-            title="Autonomous Agents"
-            desc="AI agents with rule-based scoring, strategy engines, and circuit breakers"
-          />
-          <FeatureCard
-            icon="🪙"
-            title="Token-2022 Extensions"
-            desc="Transfer fees, soulbound tokens, on-chain metadata, memo-required"
-          />
-          <FeatureCard
-            icon="🔒"
-            title="Security Engine"
-            desc="Permission scoping, rate limiting, volume caps, encrypted key storage"
-          />
-          <FeatureCard
-            icon="📡"
-            title="Devnet Integration"
-            desc="Live Solana devnet connectivity with real transaction signing"
-          />
-          <FeatureCard
-            icon="🧪"
-            title="Simulation"
-            desc="Multi-agent test harness with autonomous decision-making rounds"
-          />
+        <div className="feature-card">
+          <div className="feature-icon blue"><IconCpu size={18} /></div>
+          <h4>Autonomous Agents</h4>
+          <p>AI agents with rule-based scoring, strategy engines, and automatic circuit breakers</p>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon amber"><IconHexagon size={18} /></div>
+          <h4>Token-2022 Extensions</h4>
+          <p>Transfer fees, soulbound tokens, on-chain metadata, interest-bearing mints</p>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon red"><IconShield size={18} /></div>
+          <h4>Security Engine</h4>
+          <p>Permission scoping, rate limiting, volume caps, AES-256-GCM encrypted key storage</p>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon green"><IconGlobe size={18} /></div>
+          <h4>Devnet Integration</h4>
+          <p>Live Solana devnet connectivity with real transaction signing and confirmation</p>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon violet"><IconFlask size={18} /></div>
+          <h4>Simulation Engine</h4>
+          <p>Multi-agent test harness with autonomous decision-making rounds</p>
         </div>
       </div>
-    </div>
-  )
-}
-
-function FeatureCard({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div style={{
-      background: 'var(--bg-primary)',
-      border: '1px solid var(--border)',
-      borderRadius: '10px',
-      padding: '16px',
-    }}>
-      <div style={{ fontSize: '24px', marginBottom: '8px' }}>{icon}</div>
-      <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{title}</div>
-      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{desc}</div>
     </div>
   )
 }
