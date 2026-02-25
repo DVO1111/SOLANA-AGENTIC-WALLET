@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { securityApi } from '../api'
+import { useScrollReveal } from '../useScrollReveal'
 import {
   IconShield, IconRefresh, IconLock, IconShieldCheck,
   IconClock, IconBarChart, IconZap, IconFlask,
@@ -60,33 +61,35 @@ export default function Security() {
     }
   }
 
+  const scrollRef = useScrollReveal<HTMLDivElement>()
+
   return (
-    <div>
-      <div className="page-header">
+    <div ref={scrollRef}>
+      <div className="page-header" data-scroll="blur-up">
         <h2>Security & Audit</h2>
         <p>Execution logs, permission enforcement, and rate limiting</p>
       </div>
 
       {/* ── Stats ──────────────────────────────────────────── */}
       <div className="stat-grid">
-        <div className="stat-card">
+        <div className="stat-card" data-scroll="scale-up" data-scroll-stagger>
           <div className="stat-icon violet"><IconShield size={18} /></div>
           <div className="stat-label">Total Events</div>
           <div className="stat-value">{stats.total}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card" data-scroll="scale-up" data-scroll-stagger>
           <div className="stat-icon green"><IconShieldCheck size={18} /></div>
           <div className="stat-label">Successful</div>
           <div className="stat-value">{stats.success}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card" data-scroll="scale-up" data-scroll-stagger>
           <div className="stat-icon" style={{ background: 'var(--danger-muted)', color: 'var(--danger)' }}>
             <IconZap size={18} />
           </div>
           <div className="stat-label">Failed</div>
           <div className="stat-value">{stats.failed}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card" data-scroll="scale-up" data-scroll-stagger>
           <div className="stat-icon amber"><IconLock size={18} /></div>
           <div className="stat-label">Blocked</div>
           <div className="stat-value">{stats.blocked}</div>
@@ -94,37 +97,37 @@ export default function Security() {
       </div>
 
       {/* ── Architecture ───────────────────────────────────── */}
-      <div className="card">
+      <div className="card" data-scroll="fade-up">
         <div className="card-header">
           <h3>Security Architecture</h3>
         </div>
         <div className="feature-grid">
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon violet"><IconLock size={18} /></div>
             <h4>AES-256-GCM Encryption</h4>
             <p>Private keys encrypted at rest with PBKDF2 key derivation</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon blue"><IconShieldCheck size={18} /></div>
             <h4>Permission Scoping</h4>
             <p>Per-agent permissions: transfer, swap, stake, custom actions</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon amber"><IconClock size={18} /></div>
             <h4>Rate Limiting</h4>
             <p>Configurable transactions per minute per agent</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon green"><IconBarChart size={18} /></div>
             <h4>Volume Tracking</h4>
             <p>Daily volume caps with automatic reset</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon red"><IconZap size={18} /></div>
             <h4>Circuit Breaker</h4>
             <p>Auto-disable agents after consecutive failures</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
             <div className="feature-icon violet"><IconFlask size={18} /></div>
             <h4>Tx Simulation</h4>
             <p>Dry-run via simulateTransaction before spending SOL</p>
@@ -133,7 +136,7 @@ export default function Security() {
       </div>
 
       {/* ── Execution Log ──────────────────────────────────── */}
-      <div className="card">
+      <div className="card" data-scroll="lift">
         <div className="card-header">
           <h3>Execution Log <span className="badge badge-neutral">{filteredLogs.length}</span></h3>
           <div className="btn-group">

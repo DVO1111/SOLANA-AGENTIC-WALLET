@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { walletApi, agentApi, securityApi } from '../api'
+import { useScrollReveal } from '../useScrollReveal'
 import {
   IconWallet, IconCpu, IconLayers, IconShield,
   IconPlus, IconArrowRight, IconHexagon,
@@ -49,31 +50,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setLoading(false)
   }
 
+  const scrollRef = useScrollReveal<HTMLDivElement>()
+
   return (
-    <div>
-      <div className="page-header">
+    <div ref={scrollRef}>
+      <div className="page-header" data-scroll="blur-up">
         <h2>Dashboard</h2>
         <p>AI-powered autonomous wallet infrastructure on Solana</p>
       </div>
 
       {/* ── Stats ──────────────────────────────────────────── */}
       <div className="stat-grid">
-        <div className="stat-card clickable" onClick={() => onNavigate('wallets')}>
+        <div className="stat-card clickable" data-scroll="scale-up" data-scroll-stagger onClick={() => onNavigate('wallets')}>
           <div className="stat-icon violet"><IconWallet size={18} /></div>
           <div className="stat-label">Wallets</div>
           <div className="stat-value">{loading ? '–' : stats.wallets}</div>
         </div>
-        <div className="stat-card clickable" onClick={() => onNavigate('agents')}>
+        <div className="stat-card clickable" data-scroll="scale-up" data-scroll-stagger onClick={() => onNavigate('agents')}>
           <div className="stat-icon blue"><IconCpu size={18} /></div>
           <div className="stat-label">AI Agents</div>
           <div className="stat-value">{loading ? '–' : stats.agents}</div>
         </div>
-        <div className="stat-card">
+        <div className="stat-card" data-scroll="scale-up" data-scroll-stagger>
           <div className="stat-icon green"><IconLayers size={18} /></div>
           <div className="stat-label">Total Balance</div>
           <div className="stat-value">{loading ? '–' : `${stats.totalBalance.toFixed(2)}`}</div>
         </div>
-        <div className="stat-card clickable" onClick={() => onNavigate('security')}>
+        <div className="stat-card clickable" data-scroll="scale-up" data-scroll-stagger onClick={() => onNavigate('security')}>
           <div className="stat-icon amber"><IconShield size={18} /></div>
           <div className="stat-label">Security Events</div>
           <div className="stat-value">{loading ? '–' : stats.securityEvents}</div>
@@ -81,8 +84,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* ── Quick Actions ──────────────────────────────────── */}
-      <div className="section-label">Quick Actions</div>
-      <div className="action-grid" style={{ marginBottom: 28 }}>
+      <div className="section-label" data-scroll="fade-up">Quick Actions</div>
+      <div className="action-grid" data-scroll="fade-up" style={{ marginBottom: 28 }}>
         <button className="action-card" onClick={() => onNavigate('wallets')}>
           <div className="action-icon" style={{ background: 'var(--accent-muted)', color: 'var(--accent-text)' }}>
             <IconPlus size={18} />
@@ -110,34 +113,34 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* ── Architecture ───────────────────────────────────── */}
-      <div className="section-label">Architecture</div>
+      <div className="section-label" data-scroll="fade-up">Architecture</div>
       <div className="feature-grid">
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon violet"><IconKey size={18} /></div>
           <h4>Wallet Management</h4>
           <p>Create, fund, and manage Solana wallets with full keypair control and balance tracking</p>
         </div>
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon blue"><IconCpu size={18} /></div>
           <h4>Autonomous Agents</h4>
           <p>AI agents with rule-based scoring, strategy engines, and automatic circuit breakers</p>
         </div>
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon amber"><IconHexagon size={18} /></div>
           <h4>Token-2022 Extensions</h4>
           <p>Transfer fees, soulbound tokens, on-chain metadata, interest-bearing mints</p>
         </div>
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon red"><IconShield size={18} /></div>
           <h4>Security Engine</h4>
           <p>Permission scoping, rate limiting, volume caps, AES-256-GCM encrypted key storage</p>
         </div>
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon green"><IconGlobe size={18} /></div>
           <h4>Devnet Integration</h4>
           <p>Live Solana devnet connectivity with real transaction signing and confirmation</p>
         </div>
-        <div className="feature-card">
+        <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon violet"><IconFlask size={18} /></div>
           <h4>Simulation Engine</h4>
           <p>Multi-agent test harness with autonomous decision-making rounds</p>

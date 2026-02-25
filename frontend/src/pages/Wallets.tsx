@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { walletApi } from '../api'
+import { useScrollReveal } from '../useScrollReveal'
 import { IconPlus, IconDroplet, IconSend, IconRefresh, IconWallet, IconCopy, IconCheck, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface WalletInfo {
@@ -81,9 +82,11 @@ export default function Wallets() {
     setTimeout(() => setCopiedAddr(null), 1500)
   }
 
+  const scrollRef = useScrollReveal<HTMLDivElement>()
+
   return (
-    <div>
-      <div className="page-header">
+    <div ref={scrollRef}>
+      <div className="page-header" data-scroll="blur-up">
         <h2>Wallets</h2>
         <p>Create and manage Solana wallets on devnet</p>
       </div>
@@ -96,7 +99,7 @@ export default function Wallets() {
       )}
 
       {/* ── Create ─────────────────────────────────────────── */}
-      <div className="card">
+      <div className="card" data-scroll="fade-up">
         <div className="card-header">
           <div>
             <h3>Create Wallet</h3>
@@ -113,7 +116,7 @@ export default function Wallets() {
 
       {/* ── Wallet List ────────────────────────────────────── */}
       {wallets.length > 0 && (
-        <div className="card">
+        <div className="card" data-scroll="lift">
           <div className="card-header">
             <h3>Session Wallets <span className="badge badge-neutral">{wallets.length}</span></h3>
             <button className="btn btn-sm btn-secondary" onClick={refreshWallets}>
@@ -223,7 +226,7 @@ export default function Wallets() {
 
       {/* ── Send SOL ───────────────────────────────────────── */}
       {wallets.length >= 2 && (
-        <div className="card">
+        <div className="card" data-scroll="fade-up">
           <div className="card-header">
             <div>
               <h3>Transfer SOL</h3>

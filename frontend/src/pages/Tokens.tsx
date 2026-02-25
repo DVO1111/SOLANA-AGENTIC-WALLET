@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { tokenApi, walletApi } from '../api'
+import { useScrollReveal } from '../useScrollReveal'
 import { IconHexagon, IconPlus, IconCopy, IconCheck, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface MintRecord {
@@ -115,9 +116,11 @@ export default function Tokens() {
     )
   }
 
+  const scrollRef = useScrollReveal<HTMLDivElement>()
+
   return (
-    <div>
-      <div className="page-header">
+    <div ref={scrollRef}>
+      <div className="page-header" data-scroll="blur-up">
         <h2>Token Extensions</h2>
         <p>Create tokens with Token-2022 extensions on Solana devnet</p>
       </div>
@@ -130,7 +133,7 @@ export default function Tokens() {
       )}
 
       {/* ── Create Mint ────────────────────────────────────── */}
-      <div className="card">
+      <div className="card" data-scroll="fade-up">
         <div className="card-header">
           <div>
             <h3>Create Extended Mint</h3>
@@ -248,7 +251,7 @@ export default function Tokens() {
 
       {/* ── Existing Mints ─────────────────────────────────── */}
       {mints.length > 0 && (
-        <div className="card">
+        <div className="card" data-scroll="lift">
           <div className="card-header">
             <h3>Created Mints <span className="badge badge-neutral">{mints.length}</span></h3>
           </div>

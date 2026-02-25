@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { agentApi, simulationApi } from '../api'
+import { useScrollReveal } from '../useScrollReveal'
 import { IconCpu, IconPlay, IconRefresh, IconDroplet, IconPlus, IconTrendingUp, IconCheck, IconX, IconCopy, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface AgentInfo {
@@ -117,9 +118,11 @@ export default function Agents() {
     }
   }
 
+  const scrollRef = useScrollReveal<HTMLDivElement>()
+
   return (
-    <div>
-      <div className="page-header">
+    <div ref={scrollRef}>
+      <div className="page-header" data-scroll="blur-up">
         <h2>AI Agents</h2>
         <p>Register autonomous agents and run multi-agent simulations</p>
       </div>
@@ -132,7 +135,7 @@ export default function Agents() {
       )}
 
       {/* ── Register ───────────────────────────────────────── */}
-      <div className="card">
+      <div className="card" data-scroll="fade-up">
         <div className="card-header">
           <div>
             <h3>Register Agent</h3>
@@ -181,7 +184,7 @@ export default function Agents() {
       {/* ── Agent List ─────────────────────────────────────── */}
       {agents.length > 0 && (
         <>
-          <div className="card">
+          <div className="card" data-scroll="lift">
             <div className="card-header">
               <h3>Active Agents <span className="badge badge-neutral">{agents.length}</span></h3>
               <div className="btn-group">
@@ -336,7 +339,7 @@ export default function Agents() {
 
           {/* ── Simulation Results ──────────────────────────── */}
           {simResults && (
-            <div className="card">
+            <div className="card" data-scroll="scale-up">
               <div className="card-header">
                 <h3>Round #{simResults.round} Results</h3>
               </div>

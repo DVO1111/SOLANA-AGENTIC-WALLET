@@ -1247,6 +1247,97 @@ tbody tr:nth-child(10) { animation-delay: 200ms; }
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* ── Scroll Reveal Transitions ─────────────────────────────────────────── */
+/* "SwiftUI scroll transitions" — elements animate in as they enter viewport */
+
+[data-scroll] {
+  opacity: 0;
+  will-change: transform, opacity;
+  transition:
+    opacity 0.7s var(--spring-gentle),
+    transform 0.7s var(--spring-gentle);
+}
+
+[data-scroll].scroll-visible {
+  opacity: 1;
+}
+
+/* ── Scroll variants ─── */
+
+/* Fade up (default) */
+[data-scroll="fade-up"] {
+  transform: translateY(32px);
+}
+[data-scroll="fade-up"].scroll-visible {
+  transform: translateY(0);
+}
+
+/* Fade up + scale */
+[data-scroll="scale-up"] {
+  transform: translateY(24px) scale(0.96);
+}
+[data-scroll="scale-up"].scroll-visible {
+  transform: translateY(0) scale(1);
+}
+
+/* Slide from left */
+[data-scroll="slide-left"] {
+  transform: translateX(-40px);
+}
+[data-scroll="slide-left"].scroll-visible {
+  transform: translateX(0);
+}
+
+/* Slide from right */
+[data-scroll="slide-right"] {
+  transform: translateX(40px);
+}
+[data-scroll="slide-right"].scroll-visible {
+  transform: translateX(0);
+}
+
+/* Scale in (center pop) */
+[data-scroll="scale-in"] {
+  transform: scale(0.88);
+}
+[data-scroll="scale-in"].scroll-visible {
+  transform: scale(1);
+}
+
+/* Blur reveal */
+[data-scroll="blur-up"] {
+  transform: translateY(20px);
+  filter: blur(8px);
+  transition:
+    opacity 0.7s var(--spring-gentle),
+    transform 0.7s var(--spring-gentle),
+    filter 0.7s var(--spring-gentle);
+}
+[data-scroll="blur-up"].scroll-visible {
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Lift — subtle rise with shadow */
+[data-scroll="lift"] {
+  transform: translateY(16px);
+  box-shadow: var(--shadow-xs);
+}
+[data-scroll="lift"].scroll-visible {
+  transform: translateY(0);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Reduce motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  [data-scroll] {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
