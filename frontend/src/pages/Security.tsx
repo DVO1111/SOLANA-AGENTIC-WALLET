@@ -67,7 +67,7 @@ export default function Security() {
     <div ref={scrollRef}>
       <div className="page-header" data-scroll="blur-up">
         <h2>Security & Audit</h2>
-        <p>Execution logs, permission enforcement, and rate limiting</p>
+        <p>Execution logs, permission scoping, rate limiting, and volume caps</p>
       </div>
 
       {/* ── Stats ──────────────────────────────────────────── */}

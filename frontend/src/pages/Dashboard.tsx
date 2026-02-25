@@ -57,7 +57,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     <div ref={scrollRef}>
       <div className="page-header" data-scroll="blur-up">
         <h2>Dashboard</h2>
-        <p>AI-powered autonomous wallet infrastructure on Solana</p>
+        <p>Manage wallets, agents, and token infrastructure on Solana devnet</p>
       </div>
 
       {/* ── Swimming Solana Logo ────────────────────────────── */}
@@ -88,7 +88,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* ── Quick Actions ──────────────────────────────────── */}
-      <div className="section-label" data-scroll="fade-up">Quick Actions</div>
+      <div className="section-label" data-scroll="fade-up">Actions</div>
       <div className="action-grid" data-scroll="fade-up" style={{ marginBottom: 28 }}>
         <button className="action-card" onClick={() => onNavigate('wallets')}>
           <div className="action-icon" style={{ background: 'var(--accent-muted)', color: 'var(--accent-text)' }}>
@@ -117,7 +117,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* ── Architecture ───────────────────────────────────── */}
-      <div className="section-label" data-scroll="fade-up">Architecture</div>
+      <div className="section-label" data-scroll="fade-up">How it works</div>
       <div className="feature-grid">
         <div className="feature-card" data-scroll="scale-in" data-scroll-stagger>
           <div className="feature-icon violet"><IconKey size={18} /></div>

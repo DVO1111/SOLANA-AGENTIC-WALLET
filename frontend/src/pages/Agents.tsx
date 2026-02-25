@@ -124,7 +124,7 @@ export default function Agents() {
     <div ref={scrollRef}>
       <div className="page-header" data-scroll="blur-up">
         <h2>AI Agents</h2>
-        <p>Register autonomous agents and run multi-agent simulations</p>
+        <p>Register agents with dedicated wallets and run multi-agent simulations</p>
       </div>
 
       {status && (

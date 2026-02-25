@@ -89,7 +89,7 @@ export default function SwimmingSolana() {
 
         // Glow intensity based on speed
         const glowOpacity = Math.min(0.15 + speed * 0.01, 0.6)
-        logoRef.current.style.filter = `drop-shadow(0 0 ${8 + speed * 0.8}px rgba(139, 92, 246, ${glowOpacity}))`
+        logoRef.current.style.filter = `drop-shadow(0 0 ${8 + speed * 0.8}px rgba(20, 184, 166, ${glowOpacity}))`
       }
 
       // Spawn ripple if moving fast enough
