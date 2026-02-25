@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { walletApi, agentApi, securityApi } from '../api'
 import { useScrollReveal } from '../useScrollReveal'
+import SwimmingSolana from '../SwimmingSolana'
 import {
   IconWallet, IconCpu, IconLayers, IconShield,
   IconPlus, IconArrowRight, IconHexagon,
@@ -58,6 +59,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         <h2>Dashboard</h2>
         <p>AI-powered autonomous wallet infrastructure on Solana</p>
       </div>
+
+      {/* ── Swimming Solana Logo ────────────────────────────── */}
+      <SwimmingSolana />
 
       {/* ── Stats ──────────────────────────────────────────── */}
       <div className="stat-grid">

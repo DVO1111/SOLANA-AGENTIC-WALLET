@@ -1247,6 +1247,140 @@ tbody tr:nth-child(10) { animation-delay: 200ms; }
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* ── Swimming Solana Logo ──────────────────────────────────────────────── */
+/* "Tilt your phone, the duck swims that way" — but it's the Solana logo */
+
+.swim-pond {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(ellipse at 50% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  cursor: none;
+  margin-bottom: 24px;
+  box-shadow:
+    var(--shadow-md),
+    inset 0 -30px 60px -20px rgba(139, 92, 246, 0.03);
+}
+
+/* Subtle animated water surface lines */
+.swim-surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.swim-wave {
+  position: absolute;
+  left: -20%;
+  width: 140%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(139, 92, 246, 0.08) 20%,
+    rgba(139, 92, 246, 0.12) 50%,
+    rgba(139, 92, 246, 0.08) 80%,
+    transparent 100%
+  );
+  animation: swimWave 6s ease-in-out infinite;
+}
+
+.swim-wave-1 { top: 30%; animation-delay: 0s; }
+.swim-wave-2 { top: 55%; animation-delay: -2s; opacity: 0.7; }
+.swim-wave-3 { top: 78%; animation-delay: -4s; opacity: 0.5; }
+
+@keyframes swimWave {
+  0%, 100% { transform: translateX(-5%) scaleY(1); }
+  50%      { transform: translateX(5%) scaleY(1.5); }
+}
+
+/* The floating logo */
+.swim-logo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+  will-change: transform, filter;
+  transition: filter 0.3s ease;
+}
+
+.swim-logo svg {
+  display: block;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+/* Wake trail behind the logo */
+.swim-wake {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 40px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: swimBob 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes swimBob {
+  from { transform: translateX(-50%) scaleX(0.8); opacity: 0.6; }
+  to   { transform: translateX(-50%) scaleX(1.2); opacity: 1; }
+}
+
+/* Ripples left in the water */
+.swim-ripple {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
+  animation: swimRipple 1.2s ease-out forwards;
+}
+
+@keyframes swimRipple {
+  0% {
+    width: 8px;
+    height: 8px;
+    border: 2px solid rgba(139, 92, 246, 0.35);
+    opacity: 1;
+  }
+  100% {
+    width: 80px;
+    height: 80px;
+    margin-left: -36px;
+    margin-top: -36px;
+    border: 1px solid rgba(139, 92, 246, 0);
+    opacity: 0;
+  }
+}
+
+/* Hint label */
+.swim-label {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  animation: swimLabelPulse 3s ease-in-out infinite;
+}
+
+@keyframes swimLabelPulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.7; }
+}
+
 /* ── Scroll Reveal Transitions ─────────────────────────────────────────── */
 /* "SwiftUI scroll transitions" — elements animate in as they enter viewport */
 
