@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { walletApi } from '../api'
-import { IconPlus, IconDroplet, IconSend, IconRefresh, IconWallet } from '../Icons'
+import { IconPlus, IconDroplet, IconSend, IconRefresh, IconWallet, IconCopy, IconCheck, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface WalletInfo {
   address: string
@@ -12,6 +12,8 @@ export default function Wallets() {
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ type: string; msg: string } | null>(null)
   const [sendForm, setSendForm] = useState({ from: '', to: '', amount: '0.01' })
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
 
   useEffect(() => { refreshWallets() }, [])
 
@@ -73,6 +75,12 @@ export default function Wallets() {
     setLoading(false)
   }
 
+  function copyAddress(addr: string) {
+    navigator.clipboard.writeText(addr)
+    setCopiedAddr(addr)
+    setTimeout(() => setCopiedAddr(null), 1500)
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -116,24 +124,96 @@ export default function Wallets() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>#</th>
                   <th>Address</th>
                   <th>Balance (SOL)</th>
+                  <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {wallets.map((w) => (
-                  <tr key={w.address}>
-                    <td><span className="address">{w.address}</span></td>
-                    <td>
-                      <span className="font-mono font-bold">{w.balance.toFixed(4)}</span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-sm btn-secondary" onClick={() => airdrop(w.address)}>
-                        <IconDroplet size={13} /> Airdrop 1 SOL
-                      </button>
-                    </td>
-                  </tr>
+                {wallets.map((w, i) => (
+                  <Fragment key={w.address}>
+                    <tr
+                      className={`row-clickable ${expandedRow === w.address ? 'row-selected' : ''}`}
+                      onClick={() => setExpandedRow(expandedRow === w.address ? null : w.address)}
+                    >
+                      <td><span className="row-index">{i + 1}</span></td>
+                      <td>
+                        <span className="address-cell">
+                          <span className="address">{w.address.slice(0, 12)}...{w.address.slice(-8)}</span>
+                          <button
+                            className={`copy-btn ${copiedAddr === w.address ? 'copied' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); copyAddress(w.address) }}
+                            title="Copy address"
+                          >
+                            {copiedAddr === w.address ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                          </button>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="font-mono font-bold">{w.balance.toFixed(4)}</span>
+                        <div className="row-progress" style={{ width: 60 }}>
+                          <div
+                            className={`row-progress-fill ${w.balance > 0 ? 'green' : ''}`}
+                            style={{ width: `${Math.min(w.balance * 50, 100)}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <span className="flex items-center" style={{ gap: 6 }}>
+                          <span className={`row-status-dot ${w.balance > 0 ? 'green' : 'amber'}`} />
+                          <span className="text-xs">{w.balance > 0 ? 'Funded' : 'Empty'}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button className="btn btn-sm btn-secondary" onClick={(e) => { e.stopPropagation(); airdrop(w.address) }}>
+                            <IconDroplet size={13} /> Airdrop
+                          </button>
+                          <button
+                            className="btn btn-sm btn-ghost"
+                            onClick={(e) => { e.stopPropagation(); setExpandedRow(expandedRow === w.address ? null : w.address) }}
+                          >
+                            <IconChevronDown size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedRow === w.address && (
+                      <tr>
+                        <td colSpan={5} style={{ padding: 0 }}>
+                          <div className="row-detail">
+                            <div className="row-detail-item">
+                              <span className="detail-label">Full Address</span>
+                              <span className="detail-value" style={{ fontSize: 11 }}>{w.address}</span>
+                            </div>
+                            <div className="row-detail-item">
+                              <span className="detail-label">Balance</span>
+                              <span className="detail-value">{w.balance.toFixed(9)} SOL</span>
+                            </div>
+                            <div className="row-detail-item">
+                              <span className="detail-label">Network</span>
+                              <span className="detail-value" style={{ color: 'var(--success)' }}>Devnet</span>
+                            </div>
+                            <div className="row-detail-item">
+                              <span className="detail-label">Explorer</span>
+                              <a
+                                href={`https://explorer.solana.com/address/${w.address}?cluster=devnet`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="detail-value"
+                                style={{ color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View <IconExternalLink size={12} />
+                              </a>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

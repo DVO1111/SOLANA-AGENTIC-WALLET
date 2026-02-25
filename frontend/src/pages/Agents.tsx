@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { agentApi, simulationApi } from '../api'
-import { IconCpu, IconPlay, IconRefresh, IconDroplet, IconPlus, IconTrendingUp, IconCheck, IconX } from '../Icons'
+import { IconCpu, IconPlay, IconRefresh, IconDroplet, IconPlus, IconTrendingUp, IconCheck, IconX, IconCopy, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface AgentInfo {
   id: string
@@ -34,6 +34,8 @@ export default function Agents() {
   const [status, setStatus] = useState<{ type: string; msg: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [simResults, setSimResults] = useState<SimResult | null>(null)
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null)
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
     strategy: 'trading',
@@ -94,6 +96,16 @@ export default function Agents() {
       setStatus({ type: 'error', msg: e.message })
     }
     setLoading(false)
+  }
+
+  function copyAddress(addr: string) {
+    navigator.clipboard.writeText(addr)
+    setCopiedAddr(addr)
+    setTimeout(() => setCopiedAddr(null), 1500)
+  }
+
+  function toggleAgent(id: string) {
+    setExpandedAgent(expandedAgent === id ? null : id)
   }
 
   const strategyBadge = (s: string) => {
@@ -188,45 +200,135 @@ export default function Agents() {
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: 40 }}>#</th>
                     <th>Name</th>
                     <th>Strategy</th>
                     <th>Wallet</th>
                     <th>Balance</th>
-                    <th>Decisions</th>
-                    <th>Success</th>
-                    <th>Failed</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>Success Rate</th>
+                    <th style={{ width: 0 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {agents.map((agent) => (
-                    <tr key={agent.id}>
-                      <td className="font-bold">{agent.name}</td>
-                      <td>
-                        <span className={`badge ${strategyBadge(agent.strategy)}`}>
-                          {agent.strategy}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="address-short">
-                          {agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
-                        </span>
-                      </td>
-                      <td className="font-mono">{agent.balance.toFixed(4)}</td>
-                      <td className="font-mono">{agent.stats.totalDecisions}</td>
-                      <td>
-                        <span className="badge badge-success">{agent.stats.successfulTxns}</span>
-                      </td>
-                      <td>
-                        <span className="badge badge-danger">{agent.stats.failedTxns}</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="btn btn-sm btn-secondary" onClick={() => fundAgent(agent.id)}>
-                          <IconDroplet size={13} /> Fund
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {agents.map((agent, i) => {
+                    const total = agent.stats.successfulTxns + agent.stats.failedTxns
+                    const rate = total > 0 ? agent.stats.successfulTxns / total : 0
+                    const isExpanded = expandedAgent === agent.id
+                    return (
+                      <Fragment key={agent.id}>
+                        <tr
+                          className={`row-clickable ${isExpanded ? 'row-selected' : ''}`}
+                          onClick={() => toggleAgent(agent.id)}
+                          style={{ animationDelay: `${i * 20}ms` }}
+                        >
+                          <td className="font-mono" style={{ opacity: 0.4 }}>{i + 1}</td>
+                          <td className="font-bold">{agent.name}</td>
+                          <td>
+                            <span className={`badge ${strategyBadge(agent.strategy)}`}>
+                              {agent.strategy}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="address-cell">
+                              <span className="address-short">
+                                {agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
+                              </span>
+                              <button
+                                className={`copy-btn ${copiedAddr === agent.walletAddress ? 'copied' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); copyAddress(agent.walletAddress) }}
+                                title="Copy address"
+                              >
+                                {copiedAddr === agent.walletAddress ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                              </button>
+                            </span>
+                          </td>
+                          <td>
+                            <span className="font-mono">{agent.balance.toFixed(4)}</span>
+                            <span className={`row-status-dot ${agent.balance > 0 ? 'status-success' : 'status-warning'}`} />
+                          </td>
+                          <td>
+                            <div className="row-progress">
+                              <div className="row-progress-fill" style={{ width: `${rate * 100}%` }} />
+                            </div>
+                            <span className="font-mono" style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                              {total > 0 ? `${(rate * 100).toFixed(0)}%` : '—'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="row-actions">
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={(e) => { e.stopPropagation(); fundAgent(agent.id) }}
+                              >
+                                <IconDroplet size={13} /> Fund
+                              </button>
+                              <IconChevronDown
+                                size={14}
+                                style={{
+                                  transition: 'transform 0.2s ease',
+                                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                                  opacity: 0.5,
+                                }}
+                              />
+                            </span>
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="row-detail-row">
+                            <td colSpan={7} style={{ padding: 0 }}>
+                              <div className="row-detail">
+                                <div className="detail-grid">
+                                  <div>
+                                    <span className="detail-label">Full Wallet Address</span>
+                                    <span className="detail-value font-mono" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                                      {agent.walletAddress}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Balance</span>
+                                    <span className="detail-value font-mono">{agent.balance.toFixed(9)} SOL</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Strategy</span>
+                                    <span className="detail-value">{agent.strategy}</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Total Decisions</span>
+                                    <span className="detail-value font-mono">{agent.stats.totalDecisions}</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Successful</span>
+                                    <span className="detail-value text-success font-mono">{agent.stats.successfulTxns}</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Failed</span>
+                                    <span className="detail-value text-danger font-mono">{agent.stats.failedTxns}</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Total Volume</span>
+                                    <span className="detail-value font-mono">{agent.stats.totalVolume.toFixed(4)} SOL</span>
+                                  </div>
+                                  <div>
+                                    <span className="detail-label">Explorer</span>
+                                    <a
+                                      className="detail-value"
+                                      href={`https://explorer.solana.com/address/${agent.walletAddress}?cluster=devnet`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                    >
+                                      View on Solana Explorer <IconExternalLink size={12} />
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

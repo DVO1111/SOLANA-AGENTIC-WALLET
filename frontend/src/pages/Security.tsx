@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { securityApi } from '../api'
 import {
   IconShield, IconRefresh, IconLock, IconShieldCheck,
   IconClock, IconBarChart, IconZap, IconFlask,
+  IconChevronDown, IconCopy, IconCheck,
 } from '../Icons'
 
 interface LogEntry {
@@ -24,6 +25,14 @@ export default function Security() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [stats, setStats] = useState<SecurityStats>({ total: 0, success: 0, failed: 0, blocked: 0 })
   const [filter, setFilter] = useState<string>('all')
+  const [expandedLog, setExpandedLog] = useState<number | null>(null)
+  const [copiedText, setCopiedText] = useState<string | null>(null)
+
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text)
+    setCopiedText(text)
+    setTimeout(() => setCopiedText(null), 1500)
+  }
 
   useEffect(() => { loadData() }, [])
 
@@ -156,34 +165,101 @@ export default function Security() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 40 }}>#</th>
                   <th>Time</th>
                   <th>Action</th>
                   <th>Status</th>
                   <th>Agent</th>
-                  <th>Details</th>
+                  <th style={{ width: 0 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {[...filteredLogs].reverse().map((log, i) => (
-                  <tr key={i}>
-                    <td className="font-mono text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </td>
-                    <td className="font-bold text-sm">{log.action}</td>
-                    <td>
-                      <span className={`badge ${statusBadge(log.status)}`}>{log.status}</span>
-                    </td>
-                    <td>
-                      {log.agent
-                        ? <span className="address-short">{log.agent.slice(0, 16)}...</span>
-                        : <span className="text-tertiary">—</span>
-                      }
-                    </td>
-                    <td className="text-xs text-muted" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {log.details}
-                    </td>
-                  </tr>
-                ))}
+                {[...filteredLogs].reverse().map((log, i) => {
+                  const isExpanded = expandedLog === i
+                  return (
+                    <Fragment key={i}>
+                      <tr
+                        className={`row-clickable ${isExpanded ? 'row-selected' : ''}`}
+                        onClick={() => setExpandedLog(isExpanded ? null : i)}
+                        style={{ animationDelay: `${i * 20}ms` }}
+                      >
+                        <td className="font-mono" style={{ opacity: 0.4 }}>{i + 1}</td>
+                        <td className="font-mono text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </td>
+                        <td className="font-bold text-sm">{log.action}</td>
+                        <td>
+                          <span className={`badge ${statusBadge(log.status)}`}>{log.status}</span>
+                          <span className={`row-status-dot ${log.status === 'success' ? 'status-success' : log.status === 'blocked' ? 'status-warning' : 'status-danger'}`} />
+                        </td>
+                        <td>
+                          {log.agent ? (
+                            <span className="address-cell">
+                              <span className="address-short">{log.agent.slice(0, 12)}...</span>
+                              <button
+                                className={`copy-btn ${copiedText === log.agent ? 'copied' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); copyText(log.agent!) }}
+                                title="Copy agent ID"
+                              >
+                                {copiedText === log.agent ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                              </button>
+                            </span>
+                          ) : (
+                            <span className="text-tertiary">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="row-actions">
+                            <IconChevronDown
+                              size={14}
+                              style={{
+                                transition: 'transform 0.2s ease',
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                                opacity: 0.5,
+                              }}
+                            />
+                          </span>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="row-detail-row">
+                          <td colSpan={6} style={{ padding: 0 }}>
+                            <div className="row-detail">
+                              <div className="detail-grid">
+                                <div>
+                                  <span className="detail-label">Timestamp</span>
+                                  <span className="detail-value font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Action</span>
+                                  <span className="detail-value font-bold">{log.action}</span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Status</span>
+                                  <span className="detail-value">
+                                    <span className={`badge ${statusBadge(log.status)}`}>{log.status}</span>
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Agent</span>
+                                  <span className="detail-value font-mono" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                                    {log.agent || '—'}
+                                  </span>
+                                </div>
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <span className="detail-label">Details</span>
+                                  <span className="detail-value" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                                    {log.details}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

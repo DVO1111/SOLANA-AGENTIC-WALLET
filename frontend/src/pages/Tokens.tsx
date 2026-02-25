@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { tokenApi, walletApi } from '../api'
-import { IconHexagon, IconPlus } from '../Icons'
+import { IconHexagon, IconPlus, IconCopy, IconCheck, IconChevronDown, IconExternalLink } from '../Icons'
 
 interface MintRecord {
   mint: string
@@ -19,6 +19,8 @@ export default function Tokens() {
   const [wallets, setWallets] = useState<WalletOption[]>([])
   const [status, setStatus] = useState<{ type: string; msg: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [expandedMint, setExpandedMint] = useState<string | null>(null)
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [form, setForm] = useState({
     walletAddress: '',
     decimals: '9',
@@ -80,6 +82,16 @@ export default function Tokens() {
       setStatus({ type: 'error', msg: e.message })
     }
     setLoading(false)
+  }
+
+  function copyAddress(addr: string) {
+    navigator.clipboard.writeText(addr)
+    setCopiedAddr(addr)
+    setTimeout(() => setCopiedAddr(null), 1500)
+  }
+
+  function toggleMint(mint: string) {
+    setExpandedMint(expandedMint === mint ? null : mint)
   }
 
   const extBadge = (ext: string) => {
@@ -244,29 +256,113 @@ export default function Tokens() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: 40 }}>#</th>
                   <th>Mint Address</th>
                   <th>Extensions</th>
                   <th>Decimals</th>
                   <th>Created</th>
+                  <th style={{ width: 0 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {mints.map((m) => (
-                  <tr key={m.mint}>
-                    <td><span className="address">{m.mint}</span></td>
-                    <td>
-                      <div className="btn-group">
-                        {m.extensions.map((ext) => (
-                          <span key={ext} className={`badge ${extBadge(ext)}`}>{ext}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="font-mono">{m.decimals}</td>
-                    <td className="text-xs text-muted">
-                      {new Date(m.createdAt).toLocaleTimeString()}
-                    </td>
-                  </tr>
-                ))}
+                {mints.map((m, i) => {
+                  const isExpanded = expandedMint === m.mint
+                  return (
+                    <Fragment key={m.mint}>
+                      <tr
+                        className={`row-clickable ${isExpanded ? 'row-selected' : ''}`}
+                        onClick={() => toggleMint(m.mint)}
+                        style={{ animationDelay: `${i * 20}ms` }}
+                      >
+                        <td className="font-mono" style={{ opacity: 0.4 }}>{i + 1}</td>
+                        <td>
+                          <span className="address-cell">
+                            <span className="address-short">
+                              {m.mint.slice(0, 8)}...{m.mint.slice(-6)}
+                            </span>
+                            <button
+                              className={`copy-btn ${copiedAddr === m.mint ? 'copied' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); copyAddress(m.mint) }}
+                              title="Copy mint address"
+                            >
+                              {copiedAddr === m.mint ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                            </button>
+                          </span>
+                        </td>
+                        <td>
+                          <div className="btn-group">
+                            {m.extensions.map((ext) => (
+                              <span key={ext} className={`badge ${extBadge(ext)}`}>{ext}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="font-mono">{m.decimals}</td>
+                        <td className="text-xs text-muted" style={{ whiteSpace: 'nowrap' }}>
+                          {new Date(m.createdAt).toLocaleTimeString()}
+                        </td>
+                        <td>
+                          <span className="row-actions">
+                            <IconChevronDown
+                              size={14}
+                              style={{
+                                transition: 'transform 0.2s ease',
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                                opacity: 0.5,
+                              }}
+                            />
+                          </span>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="row-detail-row">
+                          <td colSpan={6} style={{ padding: 0 }}>
+                            <div className="row-detail">
+                              <div className="detail-grid">
+                                <div>
+                                  <span className="detail-label">Full Mint Address</span>
+                                  <span className="detail-value font-mono" style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                                    {m.mint}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Decimals</span>
+                                  <span className="detail-value font-mono">{m.decimals}</span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Extensions</span>
+                                  <span className="detail-value">{m.extensions.join(', ')}</span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Transaction Signature</span>
+                                  <span className="detail-value font-mono" style={{ fontSize: '0.75rem', wordBreak: 'break-all' }}>
+                                    {m.signature}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Created</span>
+                                  <span className="detail-value">{new Date(m.createdAt).toLocaleString()}</span>
+                                </div>
+                                <div>
+                                  <span className="detail-label">Explorer</span>
+                                  <a
+                                    className="detail-value"
+                                    href={`https://explorer.solana.com/address/${m.mint}?cluster=devnet`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    View on Solana Explorer <IconExternalLink size={12} />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
