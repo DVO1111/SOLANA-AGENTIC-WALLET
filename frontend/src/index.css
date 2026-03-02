@@ -189,10 +189,6 @@ body {
   color: var(--text-primary);
 }
 
-.nav-item:active {
-  /* clean, no spring */
-}
-
 .nav-item.active {
   background: var(--accent-muted);
   color: var(--accent-text);
@@ -305,11 +301,6 @@ body {
     border-color var(--duration-fast) ease;
 }
 
-.card:nth-child(1) { }
-.card:nth-child(2) { }
-.card:nth-child(3) { }
-.card:nth-child(4) { }
-
 @keyframes cardEntrance {
   from {
     opacity: 0;
@@ -363,17 +354,8 @@ body {
   overflow: hidden;
 }
 
-.stat-card:nth-child(1) { }
-.stat-card:nth-child(2) { }
-.stat-card:nth-child(3) { }
-.stat-card:nth-child(4) { }
-
 .stat-card:hover {
   border-color: var(--border-strong);
-}
-
-.stat-card:active {
-  /* no transform */
 }
 
 .stat-card.clickable {
@@ -1080,10 +1062,6 @@ tbody tr:nth-child(10) { animation-delay: 200ms; }
 
 .feature-card:hover {
   border-color: var(--border-strong);
-}
-
-.feature-card:active {
-  /* clean */
 }
 
 .feature-card .feature-icon {

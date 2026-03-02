@@ -188,6 +188,16 @@ export class SecureAgenticWallet {
   }
 
   /**
+   * Convenience method: Write on-chain memo via Memo Program
+   */
+  async writeMemo(memo: string): Promise<ExecutionResult> {
+    return this.execute({
+      action: 'write_memo',
+      memo,
+    });
+  }
+
+  /**
    * Convenience method: Transfer SPL Token
    */
   async transferToken(
@@ -306,7 +316,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.STANDARD,
         maxTransactionAmount: 0.5,
         maxDailyVolume: 5,
-        allowedActions: ['transfer_sol', 'transfer_token'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'write_memo'],
         rateLimit: 30,
         requiresApproval: 1,
       };
@@ -316,7 +326,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.ELEVATED,
         maxTransactionAmount: 2,
         maxDailyVolume: 20,
-        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'write_memo'],
         rateLimit: 20,
         requiresApproval: 5,
       };
@@ -335,7 +345,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.ADMIN,
         maxTransactionAmount: 10,
         maxDailyVolume: 100,
-        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'close_account', 'custom'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'close_account', 'write_memo', 'custom'],
         rateLimit: 60,
         requiresApproval: 10,
       };

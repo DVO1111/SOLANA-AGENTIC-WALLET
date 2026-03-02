@@ -41,6 +41,7 @@ if (result.success) {
 |--------|-------------|-----------------|-----------------|
 | `transfer_sol` | Send SOL to address | `destination`, `amount` | `memo` |
 | `transfer_token` | Send SPL token | `destination`, `amount`, `tokenMint`, `decimals` | `memo` |
+| `write_memo` | Write on-chain memo via Memo Program | `memo` | — |
 | `create_token_account` | Create ATA | `tokenMint` | `owner` |
 | `close_account` | Close token account | `tokenAccount` | — |
 | `custom` | Program instruction | `instruction` | — |
@@ -74,6 +75,22 @@ await wallet.execute({
   action: 'create_token_account',
   tokenMint: 'TokenMintAddress...',
 });
+```
+
+#### Write On-Chain Memo (Protocol Interaction)
+```typescript
+// Write a structured memo to the SPL Memo Program
+await wallet.execute({
+  action: 'write_memo',
+  memo: JSON.stringify({
+    agent: 'my-agent',
+    event: 'heartbeat',
+    timestamp: new Date().toISOString(),
+  }),
+});
+
+// Or use the convenience method
+await wallet.writeMemo('Agent operational');
 ```
 
 ---

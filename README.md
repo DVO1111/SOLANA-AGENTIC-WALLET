@@ -137,6 +137,9 @@ npm run live
 
 # Check Balance
 npm run devnet:check <wallet-address>
+
+# Memo Program Interaction — agents write on-chain memos
+npm run memo-demo
 ```
 
 ### Secure Wallet (Recommended)
@@ -347,6 +350,8 @@ Current capabilities:
 - SPL token operations (via TokenManager)
 - Associated Token Account creation
 - Transaction history retrieval
+- **SPL Memo Program v2** — agents write structured on-chain memos (`write_memo` action)
+- Token-2022 extensions (transfer fees, soulbound, metadata, interest-bearing)
 
 Extensible for:
 - Swap programs (Raydium, Orca)
@@ -360,7 +365,7 @@ Extensible for:
 - [x] Create wallets programmatically
 - [x] Autonomous transaction signing
 - [x] Hold SOL and SPL tokens
-- [x] Protocol interaction (Solana RPC)
+- [x] Protocol interaction (Memo Program, Token-2022)
 - [x] Multi-agent support
 - [x] Transaction logging and history
 

@@ -24,7 +24,8 @@
     "devnet:airdrop": "ts-node src/scripts/airdrop.ts",
     "devnet:check": "ts-node src/scripts/checkBalance.ts",
     "token-demo": "ts-node src/scripts/tokenInteraction.ts",
-    "token-extensions": "ts-node src/scripts/tokenExtensionsDemo.ts"
+    "token-extensions": "ts-node src/scripts/tokenExtensionsDemo.ts",
+    "memo-demo": "ts-node src/scripts/memoProtocolDemo.ts"
   },
   "keywords": [
     "solana",

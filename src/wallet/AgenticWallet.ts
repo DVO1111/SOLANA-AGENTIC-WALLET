@@ -132,6 +132,23 @@ export class AgenticWallet {
   }
 
   /**
+   * Write an on-chain memo via the SPL Memo Program (protocol interaction)
+   */
+  async writeMemo(memo: string): Promise<string> {
+    const MEMO_PROGRAM_ID = new web3.PublicKey(
+      'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
+    );
+    const transaction = new web3.Transaction().add(
+      new web3.TransactionInstruction({
+        keys: [{ pubkey: this.publicKey, isSigner: true, isWritable: false }],
+        programId: MEMO_PROGRAM_ID,
+        data: Buffer.from(memo, 'utf-8'),
+      })
+    );
+    return this.sendTransaction(transaction);
+  }
+
+  /**
    * Get transaction history
    */
   async getTransactionHistory(limit: number = 10): Promise<any[]> {

@@ -10,6 +10,7 @@ export type ActionType =
   | 'transfer_token'
   | 'create_token_account'
   | 'close_account'
+  | 'write_memo'
   | 'custom';
 
 /**
@@ -318,6 +319,10 @@ export class ExecutionEngine {
     return { allowed: true };
   }
 
+  private static readonly MEMO_PROGRAM_ID = new web3.PublicKey(
+    'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
+  );
+
   /**
    * Build transaction based on action type
    */
@@ -326,6 +331,7 @@ export class ExecutionEngine {
     params: ActionParams
   ): Promise<web3.Transaction> {
     const transaction = new web3.Transaction();
+    const MEMO_PROGRAM_ID = ExecutionEngine.MEMO_PROGRAM_ID;
 
     switch (params.action) {
       case 'transfer_sol':
@@ -374,6 +380,19 @@ export class ExecutionEngine {
         );
         break;
 
+      case 'write_memo':
+        if (!params.memo) {
+          throw new Error('Missing memo content for write_memo');
+        }
+        transaction.add(
+          new web3.TransactionInstruction({
+            keys: [{ pubkey: fromPubkey, isSigner: true, isWritable: false }],
+            programId: MEMO_PROGRAM_ID,
+            data: Buffer.from(params.memo, 'utf-8'),
+          })
+        );
+        break;
+
       case 'custom':
         if (!params.instructions || params.instructions.length === 0) {
           throw new Error('Missing instructions for custom action');
@@ -385,11 +404,8 @@ export class ExecutionEngine {
         throw new Error(`Unknown action: ${params.action}`);
     }
 
-    // Add memo if provided (using SPL Memo Program v2)
-    if (params.memo) {
-      const MEMO_PROGRAM_ID = new web3.PublicKey(
-        'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
-      );
+    // Attach memo to any action (not just write_memo)
+    if (params.memo && params.action !== 'write_memo') {
       transaction.add(
         new web3.TransactionInstruction({
           keys: [{ pubkey: fromPubkey, isSigner: true, isWritable: false }],
