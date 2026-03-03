@@ -316,7 +316,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.STANDARD,
         maxTransactionAmount: 0.5,
         maxDailyVolume: 5,
-        allowedActions: ['transfer_sol', 'transfer_token', 'write_memo'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'write_memo', 'swap'],
         rateLimit: 30,
         requiresApproval: 1,
       };
@@ -326,7 +326,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.ELEVATED,
         maxTransactionAmount: 2,
         maxDailyVolume: 20,
-        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'write_memo'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'write_memo', 'swap'],
         rateLimit: 20,
         requiresApproval: 5,
       };
@@ -345,7 +345,7 @@ export function createDefaultPermissions(
         level: PermissionLevel.ADMIN,
         maxTransactionAmount: 10,
         maxDailyVolume: 100,
-        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'close_account', 'write_memo', 'custom'],
+        allowedActions: ['transfer_sol', 'transfer_token', 'create_token_account', 'close_account', 'write_memo', 'swap', 'custom'],
         rateLimit: 60,
         requiresApproval: 10,
       };

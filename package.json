@@ -25,7 +25,8 @@
     "devnet:check": "ts-node src/scripts/checkBalance.ts",
     "token-demo": "ts-node src/scripts/tokenInteraction.ts",
     "token-extensions": "ts-node src/scripts/tokenExtensionsDemo.ts",
-    "memo-demo": "ts-node src/scripts/memoProtocolDemo.ts"
+    "memo-demo": "ts-node src/scripts/memoProtocolDemo.ts",
+    "swap-demo": "ts-node src/scripts/jupiterSwapDemo.ts"
   },
   "keywords": [
     "solana",

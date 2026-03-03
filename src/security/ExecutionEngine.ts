@@ -1,6 +1,7 @@
 import * as web3 from '@solana/web3.js';
 import * as splToken from '@solana/spl-token';
 import { SecureKeyStore } from './SecureKeyStore';
+import { AuditLogger } from './AuditLogger';
 
 /**
  * Action types supported by the execution engine
@@ -11,6 +12,7 @@ export type ActionType =
   | 'create_token_account'
   | 'close_account'
   | 'write_memo'
+  | 'swap'
   | 'custom';
 
 /**
@@ -53,6 +55,11 @@ export interface ActionParams {
   tokenAccount?: string;
   decimals?: number;
   
+  // For swap actions
+  inputMint?: string;
+  outputMint?: string;
+  slippageBps?: number;
+
   // For custom actions
   instructions?: web3.TransactionInstruction[];
   
@@ -151,10 +158,19 @@ export class ExecutionEngine {
   private rateLimiter: RateLimiter = new RateLimiter();
   private volumeTracker: VolumeTracker = new VolumeTracker();
   private executionLog: ExecutionResult[] = [];
+  private auditLogger?: AuditLogger;
 
-  constructor(keyStore: SecureKeyStore, connection: web3.Connection) {
+  constructor(keyStore: SecureKeyStore, connection: web3.Connection, auditLogger?: AuditLogger) {
     this.keyStore = keyStore;
     this.connection = connection;
+    this.auditLogger = auditLogger;
+  }
+
+  /**
+   * Attach or replace the audit logger at runtime
+   */
+  setAuditLogger(logger: AuditLogger): void {
+    this.auditLogger = logger;
   }
 
   /**
@@ -167,6 +183,14 @@ export class ExecutionEngine {
     console.log(`  Max Tx Amount: ${permissions.maxTransactionAmount} SOL`);
     console.log(`  Daily Limit: ${permissions.maxDailyVolume} SOL`);
     console.log(`  Rate Limit: ${permissions.rateLimit} tx/min`);
+
+    this.auditLogger?.logAgentRegistered(agentId, {
+      level: PermissionLevel[permissions.level],
+      maxTransactionAmount: permissions.maxTransactionAmount,
+      maxDailyVolume: permissions.maxDailyVolume,
+      rateLimit: permissions.rateLimit,
+      allowedActions: permissions.allowedActions,
+    });
   }
 
   /**
@@ -185,25 +209,31 @@ export class ExecutionEngine {
       // 1. Validate permissions
       const permCheck = this.validatePermissions(agentId, params);
       if (!permCheck.allowed) {
+        this.auditLogger?.logPermissionCheck(agentId, params.action, false, permCheck.reason);
         return this.createResult(false, params.action, permCheck.reason);
       }
+      this.auditLogger?.logPermissionCheck(agentId, params.action, true);
 
       // 2. Check rate limit
       const perms = this.permissions.get(agentId)!;
       if (!this.rateLimiter.canExecute(agentId, perms.rateLimit)) {
+        this.auditLogger?.logRateLimitCheck(agentId, false, undefined, perms.rateLimit);
         return this.createResult(false, params.action, 'Rate limit exceeded');
       }
+      this.auditLogger?.logRateLimitCheck(agentId, true, undefined, perms.rateLimit);
 
       // 3. Check daily volume
       const currentVolume = this.volumeTracker.getVolume(agentId);
       const txAmount = params.amount || 0;
       if (currentVolume + txAmount > perms.maxDailyVolume) {
+        this.auditLogger?.logVolumeCheck(agentId, false, currentVolume, perms.maxDailyVolume, txAmount);
         return this.createResult(
           false,
           params.action,
           `Daily volume limit exceeded (${currentVolume.toFixed(4)}/${perms.maxDailyVolume} SOL)`
         );
       }
+      this.auditLogger?.logVolumeCheck(agentId, true, currentVolume, perms.maxDailyVolume, txAmount);
 
       // 4. Retrieve key (in-memory only)
       const { secretKey, cleanup } = await this.keyStore.retrieveKey(
@@ -251,6 +281,12 @@ export class ExecutionEngine {
 
         this.executionLog.push(result);
         
+        this.auditLogger?.logExecution(agentId, params.action, true, {
+          signature,
+          amount: txAmount,
+          timeMs: Date.now() - startTime,
+        });
+
         console.log(`[ExecutionEngine] Executed ${params.action} for ${agentId}`);
         console.log(`  Signature: ${signature}`);
         console.log(`  Amount: ${txAmount} SOL`);
@@ -266,6 +302,7 @@ export class ExecutionEngine {
     } catch (error: any) {
       const result = this.createResult(false, params.action, error.message);
       this.executionLog.push(result);
+      this.auditLogger?.logError(agentId, error.message, { action: params.action });
       return result;
     }
   }
@@ -391,6 +428,19 @@ export class ExecutionEngine {
             data: Buffer.from(params.memo, 'utf-8'),
           })
         );
+        break;
+
+      case 'swap':
+        // Swap actions are handled externally via JupiterClient.
+        // When routed through the ExecutionEngine, a swap is submitted
+        // as pre-built instructions (same as 'custom') after the
+        // JupiterClient assembles the transaction.
+        if (!params.instructions || params.instructions.length === 0) {
+          throw new Error(
+            'Swap action requires pre-built instructions from JupiterClient'
+          );
+        }
+        params.instructions.forEach((ix) => transaction.add(ix));
         break;
 
       case 'custom':

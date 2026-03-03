@@ -41,6 +41,9 @@ secrets/
 coverage/
 .nyc_output/
 
+# Audit logs
+logs/
+
 # OS
 Thumbs.db
 .DS_Store

@@ -15,3 +15,5 @@ export {
   createDefaultPermissions,
 } from './SecureAgenticWallet';
 export type { SecureWalletConfig } from './SecureAgenticWallet';
+export { AuditLogger } from './AuditLogger';
+export type { AuditEntry, AuditEvent, AuditVerdict, AuditFilter } from './AuditLogger';

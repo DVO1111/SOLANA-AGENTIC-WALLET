@@ -140,6 +140,9 @@ npm run devnet:check <wallet-address>
 
 # Memo Program Interaction — agents write on-chain memos
 npm run memo-demo
+
+# Jupiter Swap Demo — wSOL wrapping + DEX quote integration
+npm run swap-demo
 ```
 
 ### Secure Wallet (Recommended)
@@ -352,9 +355,10 @@ Current capabilities:
 - Transaction history retrieval
 - **SPL Memo Program v2** — agents write structured on-chain memos (`write_memo` action)
 - Token-2022 extensions (transfer fees, soulbound, metadata, interest-bearing)
+- **Jupiter Swap Integration** — DEX aggregator quotes + SOL ↔ wSOL wrapping (`swap` action)
+- **Persistent Audit Trail** — JSONL append-only log of every permission/rate/volume check and execution
 
 Extensible for:
-- Swap programs (Raydium, Orca)
 - Lending protocols (Solend, Anchor)
 - NFT operations
 - Governance voting
@@ -366,6 +370,8 @@ Extensible for:
 - [x] Autonomous transaction signing
 - [x] Hold SOL and SPL tokens
 - [x] Protocol interaction (Memo Program, Token-2022)
+- [x] DeFi integration (Jupiter swap, wSOL wrap/unwrap)
+- [x] Persistent audit trail (JSONL)
 - [x] Multi-agent support
 - [x] Transaction logging and history
 

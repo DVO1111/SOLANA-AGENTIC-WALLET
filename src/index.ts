@@ -12,13 +12,20 @@ import {
   ExecutionEngine,
   createDefaultPermissions,
   PermissionLevel,
+  AuditLogger,
 } from './security';
 import type {
   AgentPermissions,
   ActionParams,
   ExecutionResult,
   SecureWalletConfig,
+  AuditEntry,
+  AuditEvent,
+  AuditVerdict,
+  AuditFilter,
 } from './security';
+import { JupiterClient, KNOWN_MINTS } from './protocols';
+import type { JupiterQuote, SwapResult, WrapResult } from './protocols';
 
 // Basic wallet exports
 export { AgenticWallet, TokenManager, TokenExtensionsManager, Agent, MultiAgentTestHarness };
@@ -31,13 +38,22 @@ export {
   ExecutionEngine,
   createDefaultPermissions,
   PermissionLevel,
+  AuditLogger,
 };
 export type {
   AgentPermissions,
   ActionParams,
   ExecutionResult,
   SecureWalletConfig,
+  AuditEntry,
+  AuditEvent,
+  AuditVerdict,
+  AuditFilter,
 };
+
+// Protocol exports
+export { JupiterClient, KNOWN_MINTS };
+export type { JupiterQuote, SwapResult, WrapResult };
 
 /**
  * Main entry point demonstrating agentic wallet usage

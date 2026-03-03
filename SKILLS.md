@@ -42,6 +42,7 @@ if (result.success) {
 | `transfer_sol` | Send SOL to address | `destination`, `amount` | `memo` |
 | `transfer_token` | Send SPL token | `destination`, `amount`, `tokenMint`, `decimals` | `memo` |
 | `write_memo` | Write on-chain memo via Memo Program | `memo` | — |
+| `swap` | DeFi swap (Jupiter / wSOL) | `instructions` (pre-built via JupiterClient) | `memo` |
 | `create_token_account` | Create ATA | `tokenMint` | `owner` |
 | `close_account` | Close token account | `tokenAccount` | — |
 | `custom` | Program instruction | `instruction` | — |
@@ -93,6 +94,35 @@ await wallet.execute({
 await wallet.writeMemo('Agent operational');
 ```
 
+#### DeFi Swap (Jupiter / wSOL)
+```typescript
+import { JupiterClient, KNOWN_MINTS } from './protocols';
+
+const jupiter = new JupiterClient(connection);
+
+// SOL → wSOL wrapping (always works on devnet)
+const wrapResult = await jupiter.wrapSol(keypair, 0.5);
+
+// wSOL → SOL unwrapping
+const unwrapResult = await jupiter.unwrapSol(keypair);
+
+// Jupiter aggregator swap (mainnet)
+const swapResult = await jupiter.executeSwap(
+  keypair,
+  KNOWN_MINTS.SOL,
+  KNOWN_MINTS.USDC_MAINNET,
+  100_000_000, // 0.1 SOL in lamports
+  50           // 0.5% slippage
+);
+
+// Get a quote without executing
+const quote = await jupiter.getReadableQuote(
+  KNOWN_MINTS.SOL,
+  KNOWN_MINTS.USDC_MAINNET,
+  100_000_000
+);
+```
+
 ---
 
 ## 2. Execution API Format
@@ -101,11 +131,14 @@ await wallet.writeMemo('Agent operational');
 
 ```typescript
 interface ActionParams {
-  action: 'transfer_sol' | 'transfer_token' | 'create_token_account' | 'close_account' | 'custom';
+  action: 'transfer_sol' | 'transfer_token' | 'create_token_account' | 'close_account' | 'write_memo' | 'swap' | 'custom';
   destination?: string;      // Recipient address
   amount?: number;           // Amount (in SOL or tokens)
   tokenMint?: string;        // SPL token mint address
   decimals?: number;         // Token decimals
+  inputMint?: string;        // Swap input mint
+  outputMint?: string;       // Swap output mint
+  slippageBps?: number;      // Swap slippage tolerance
   memo?: string;             // Optional memo
   instruction?: TransactionInstruction;  // For custom actions
 }
@@ -481,10 +514,57 @@ await Promise.all(agents.map(agent => agent.runStrategy()));
 | Execute action | `wallet.execute({ action, destination, amount })` |
 | Transfer SOL | `wallet.transferSOL(to, amount)` |
 | Transfer Token | `wallet.transferToken(to, amount, mint, decimals)` |
+| Write memo | `wallet.writeMemo(text)` |
+| DeFi swap | `jupiter.wrapSol(keypair, amount)` / `jupiter.executeSwap(...)` |
 | Check balance | `wallet.getBalance()` |
 | Get address | `wallet.getAddress()` |
 | Pre-check | `wallet.canExecute(params)` |
 | Get budget | `wallet.getVolumeStats()` |
+| Audit trail | `auditLogger.query({ agentId })` |
+
+---
+
+## 9. Persistent Audit Trail
+
+Every permission check, rate-limit check, and execution flows through the `AuditLogger`.
+
+### Setup
+
+```typescript
+import { AuditLogger } from './security/AuditLogger';
+
+const logger = new AuditLogger('./logs/audit.jsonl');
+
+// Attach to an ExecutionEngine
+engine.setAuditLogger(logger);
+```
+
+### Query Logs
+
+```typescript
+// All entries for an agent
+const entries = logger.query({ agentId: 'trader-1' });
+
+// Denied actions in the last hour
+const denied = logger.query({
+  verdict: 'denied',
+  since: Date.now() - 3600_000,
+});
+
+// Summary statistics
+const stats = logger.summary('trader-1');
+console.log(`Denied: ${stats.deniedActions}`);
+console.log(`Successful: ${stats.successfulExecutions}`);
+```
+
+### Log Format (JSONL)
+
+Each line in `audit.jsonl` is a self-contained JSON object:
+
+```json
+{"timestamp":"2025-01-15T10:30:00.000Z","epochMs":1736937000000,"agentId":"trader-1","event":"permission_check","action":"transfer_sol","verdict":"allowed","details":{}}
+{"timestamp":"2025-01-15T10:30:00.100Z","epochMs":1736937000100,"agentId":"trader-1","event":"execution_success","action":"transfer_sol","verdict":"success","details":{"signature":"5abc...","amount":0.05,"timeMs":1200}}
+```
 
 **Your wallet. Your autonomy. Your limits.**
 
