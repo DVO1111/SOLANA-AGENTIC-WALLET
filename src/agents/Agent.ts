@@ -41,6 +41,19 @@ export interface StrategyContext {
   averageTradeSize: number;
   consecutiveFailures: number;
   cooldownUntil: number;
+  riskMultiplier: number;
+}
+
+/**
+ * Feedback entry — one per completed round, records how the agent adapted
+ */
+export interface FeedbackEntry {
+  round: number;
+  timestamp: number;
+  riskBefore: number;
+  riskAfter: number;
+  reason: string;
+  recentWinRate: number;
 }
 
 /**
@@ -65,6 +78,16 @@ export class Agent {
     success: boolean;
     timestamp: number;
   }> = [];
+
+  // ─── Feedback / Learning Loop ────────────────────────────────
+  /** Dynamic risk multiplier — starts at 1.0, adapts each round */
+  private riskMultiplier: number = 1.0;
+  /** Rolling window of recent outcomes for adaptation */
+  private performanceWindow: boolean[] = [];
+  /** Full feedback history, visible to callers */
+  private feedbackLog: FeedbackEntry[] = [];
+  /** Monotonic round counter */
+  private roundCounter: number = 0;
 
   constructor(
     config: AgentConfig,
@@ -121,6 +144,7 @@ export class Agent {
       averageTradeSize: avgSize,
       consecutiveFailures: this.consecutiveFailures,
       cooldownUntil: this.cooldownUntil,
+      riskMultiplier: this.riskMultiplier,
     };
   }
 
@@ -224,8 +248,9 @@ export class Agent {
     // Rule: wait at least 30s between trades
     if (ctx.lastTradeTimestamp > 0 && Date.now() - ctx.lastTradeTimestamp < 30000) return null;
 
-    // Determine trade size: 5-15% of balance, capped by maxTransactionSize
-    const riskFactor = ctx.successRate > 0.7 ? 0.15 : 0.05;
+    // Determine trade size: 5-15% of balance, scaled by dynamic risk multiplier
+    const baseRisk = ctx.successRate > 0.7 ? 0.15 : 0.05;
+    const riskFactor = baseRisk * this.riskMultiplier;
     const tradeSize = Math.min(
       ctx.balance * riskFactor,
       this.config.maxTransactionSize
@@ -268,8 +293,8 @@ export class Agent {
       };
     }
 
-    // Provide liquidity: conservative sizing (5-10%)
-    const lpSize = Math.min(ctx.balance * 0.08, this.config.maxTransactionSize);
+    // Provide liquidity: conservative sizing (5-10%), scaled by risk multiplier
+    const lpSize = Math.min(ctx.balance * 0.08 * this.riskMultiplier, this.config.maxTransactionSize);
     const target = peers.length > 0
       ? peers[Math.floor(Math.random() * peers.length)]
       : web3.Keypair.generate().publicKey.toString();
@@ -289,8 +314,8 @@ export class Agent {
   private generateArbitrageDecision(ctx: StrategyContext, peers: string[]): Decision | null {
     if (ctx.balance < 0.02) return null;
 
-    // Arb bots do small, fast trades
-    const arbSize = Math.min(ctx.balance * 0.03, this.config.maxTransactionSize * 0.3);
+    // Arb bots do small, fast trades, scaled by risk multiplier
+    const arbSize = Math.min(ctx.balance * 0.03 * this.riskMultiplier, this.config.maxTransactionSize * 0.3);
     const target = peers.length > 0
       ? peers[Math.floor(Math.random() * peers.length)]
       : web3.Keypair.generate().publicKey.toString();
@@ -450,6 +475,89 @@ export class Agent {
     }
   }
 
+  // ─── Feedback / Learning Loop ───────────────────────────────────
+
+  /**
+   * Adapt risk multiplier based on recent performance.
+   * Call this after each round to close the observe→decide→execute→learn loop.
+   *
+   * Algorithm:
+   *  - Look at the last N outcomes (sliding window, size 5)
+   *  - Win rate > 70%  → increase risk by 10% (max 1.8×)
+   *  - Win rate < 40%  → decrease risk by 15% (min 0.3×)
+   *  - Otherwise        → drift toward 1.0
+   *
+   * Every call is recorded in feedbackLog so judges/dashboards can
+   * inspect exactly how the agent adapted over time.
+   */
+  adaptRisk(): FeedbackEntry {
+    this.roundCounter++;
+    const riskBefore = this.riskMultiplier;
+
+    // Recent win rate from performance window
+    const window = this.performanceWindow.slice(-5);
+    const wins = window.filter(Boolean).length;
+    const winRate = window.length > 0 ? wins / window.length : 0.5;
+
+    let reason: string;
+    if (window.length >= 3 && winRate > 0.7) {
+      this.riskMultiplier = Math.min(this.riskMultiplier * 1.10, 1.8);
+      reason = `Win rate ${(winRate * 100).toFixed(0)}% > 70% → risk ↑`;
+    } else if (window.length >= 3 && winRate < 0.4) {
+      this.riskMultiplier = Math.max(this.riskMultiplier * 0.85, 0.3);
+      reason = `Win rate ${(winRate * 100).toFixed(0)}% < 40% → risk ↓`;
+    } else {
+      // Drift toward 1.0
+      this.riskMultiplier = this.riskMultiplier + (1.0 - this.riskMultiplier) * 0.1;
+      reason = `Win rate ${(winRate * 100).toFixed(0)}% in neutral zone → drift toward 1.0`;
+    }
+
+    const entry: FeedbackEntry = {
+      round: this.roundCounter,
+      timestamp: Date.now(),
+      riskBefore: Math.round(riskBefore * 1000) / 1000,
+      riskAfter: Math.round(this.riskMultiplier * 1000) / 1000,
+      reason,
+      recentWinRate: Math.round(winRate * 100) / 100,
+    };
+
+    this.feedbackLog.push(entry);
+
+    console.log(
+      `[${this.config.name}] 🔄 ADAPT round ${entry.round}: risk ${entry.riskBefore}→${entry.riskAfter} (${reason})`
+    );
+
+    return entry;
+  }
+
+  /**
+   * Record an outcome (success/failure) in the performance window.
+   * Call this after each transaction attempt so adaptRisk has data.
+   */
+  recordOutcome(success: boolean): void {
+    this.performanceWindow.push(success);
+    // Keep window bounded
+    if (this.performanceWindow.length > 20) {
+      this.performanceWindow.shift();
+    }
+  }
+
+  /**
+   * Get full feedback history for inspection/dashboard
+   */
+  getFeedbackLog(): FeedbackEntry[] {
+    return [...this.feedbackLog];
+  }
+
+  /**
+   * Get current risk multiplier
+   */
+  getRiskMultiplier(): number {
+    return this.riskMultiplier;
+  }
+
+  // ─── Accessors ────────────────────────────────────────────────
+
   /**
    * Get agent's wallet balance
    */
@@ -479,6 +587,8 @@ export class Agent {
     failedTransactions: number;
     successRate: string;
     consecutiveFailures: number;
+    riskMultiplier: number;
+    feedbackRounds: number;
   }> {
     const balance = await this.getBalance();
     const totalTransactions = this.transactionLog.length;
@@ -502,6 +612,8 @@ export class Agent {
       failedTransactions,
       successRate,
       consecutiveFailures: this.consecutiveFailures,
+      riskMultiplier: Math.round(this.riskMultiplier * 1000) / 1000,
+      feedbackRounds: this.roundCounter,
     };
   }
 }

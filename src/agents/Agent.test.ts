@@ -114,6 +114,7 @@ describe('Agent', () => {
       averageTradeSize: 0,
       consecutiveFailures: 0,
       cooldownUntil: 0,
+      riskMultiplier: 1.0,
     };
 
     const score = agent.scoreDecision(decision, ctx);
@@ -136,6 +137,7 @@ describe('Agent', () => {
       averageTradeSize: 0.1,
       consecutiveFailures: 3,
       cooldownUntil: 0,
+      riskMultiplier: 1.0,
     };
 
     const score = agent.scoreDecision(decision, ctx);
@@ -157,6 +159,7 @@ describe('Agent', () => {
       averageTradeSize: 0,
       consecutiveFailures: 0,
       cooldownUntil: 0,
+      riskMultiplier: 1.0,
     };
 
     const score = agent.scoreDecision(decision, ctx);

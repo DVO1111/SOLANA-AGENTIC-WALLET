@@ -2,6 +2,8 @@ import * as web3 from '@solana/web3.js';
 import * as splToken from '@solana/spl-token';
 import { SecureKeyStore } from './SecureKeyStore';
 import { AuditLogger } from './AuditLogger';
+import { PolicyEngine } from './PolicyEngine';
+import type { PolicyRequest } from './PolicyEngine';
 
 /**
  * Action types supported by the execution engine
@@ -159,6 +161,7 @@ export class ExecutionEngine {
   private volumeTracker: VolumeTracker = new VolumeTracker();
   private executionLog: ExecutionResult[] = [];
   private auditLogger?: AuditLogger;
+  private policyEngine?: PolicyEngine;
 
   constructor(keyStore: SecureKeyStore, connection: web3.Connection, auditLogger?: AuditLogger) {
     this.keyStore = keyStore;
@@ -171,6 +174,16 @@ export class ExecutionEngine {
    */
   setAuditLogger(logger: AuditLogger): void {
     this.auditLogger = logger;
+  }
+
+  /**
+   * Attach a PolicyEngine for composable spending-rule enforcement.
+   * When set, every execute() call is evaluated against all policies
+   * BEFORE permission checks.
+   */
+  setPolicyEngine(engine: PolicyEngine): void {
+    this.policyEngine = engine;
+    console.log(`[ExecutionEngine] PolicyEngine attached (${engine.policyCount} policies)`);
   }
 
   /**
@@ -206,6 +219,23 @@ export class ExecutionEngine {
     const startTime = Date.now();
 
     try {
+      // 0. PolicyEngine check (composable spending rules)
+      if (this.policyEngine) {
+        const policyReq: PolicyRequest = {
+          agentId,
+          action: params.action,
+          amount: params.amount || 0,
+          destination: params.destination,
+          timestamp: Date.now(),
+        };
+        const policyResult = this.policyEngine.evaluate(policyReq);
+        if (!policyResult.allowed) {
+          const reasons = policyResult.violations.map((v) => `[${v.policy}] ${v.message}`).join('; ');
+          this.auditLogger?.logPermissionCheck(agentId, params.action, false, `PolicyEngine: ${reasons}`);
+          return this.createResult(false, params.action, `Policy denied: ${reasons}`);
+        }
+      }
+
       // 1. Validate permissions
       const permCheck = this.validatePermissions(agentId, params);
       if (!permCheck.allowed) {
@@ -273,6 +303,7 @@ export class ExecutionEngine {
         // 11. Record successful execution
         this.rateLimiter.recordTransaction(agentId);
         this.volumeTracker.addVolume(agentId, txAmount);
+        this.policyEngine?.recordTransaction(agentId, txAmount);
 
         const result = this.createResult(true, params.action, undefined, {
           signature,

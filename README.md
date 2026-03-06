@@ -1,533 +1,392 @@
-# Solana Agentic Wallet
+﻿# Solana Agentic Wallet
 
-An autonomous wallet system designed specifically for AI agents to independently manage assets, sign transactions, and interact with Solana protocols without human intervention.
+> **Autonomous AI agents that create wallets, enforce spending policies, interact with DeFi protocols, learn from outcomes, and leave a full audit trail -- all on Solana devnet.**
 
-## Overview
+---
 
-This project demonstrates a production-ready prototype of an agentic wallet that enables AI agents to:
+## The Agent -> Wallet -> Protocol -> Learn Loop
 
-- **Create wallets programmatically** - `Keypair.generate()` with encrypted persistence
-- **Secure key storage** - AES-256-GCM encryption, keys never exposed to agent logic
-- **Permission-scoped execution** - `wallet.execute(action, params)` pattern
-- **Transaction policy engine** - Max amounts, rate limits, action whitelists
-- **Hold SOL and SPL tokens** with autonomous management
-- **Multi-agent simulation** - Independent wallets for each agent
-- **Sandboxed environment** - Devnet only, capped funds, full monitoring
+```
++--------------------------------------------------------------+
+|  1. OBSERVE    Agent reads balance, market signals, history  |
++--------------------------------------------------------------+
+|  2. DECIDE     Scoring engine (0->1) picks action + size     |
++--------------------------------------------------------------+
+|  3. POLICY     PolicyEngine checks spending rules before tx  |
++--------------------------------------------------------------+
+|  4. EXECUTE    ExecutionEngine signs & broadcasts on-chain   |
++--------------------------------------------------------------+
+|  5. LEARN      adaptRisk() adjusts future risk from results  |
++--------------------------------------------------------------+
+       ^                                           |
+       +-------------- next round ----------------+
+```
+
+This is **not** a script that sends one transfer. It is a full autonomous agent system with:
+- **3 distinct AI agents** (trader, LP, arbitrageur) running concurrently
+- **Composable PolicyEngine** -- modular spending rules enforced before every tx
+- **Real protocol interaction** -- Jupiter DEX quotes, wSOL wrap/unwrap, SPL Memo on-chain
+- **Feedback loop** -- agents visibly adapt risk multiplier between rounds
+- **Encrypted key store** -- AES-256-GCM, keys never exposed to agent logic
+- **Append-only audit trail** -- every permission check, rate limit, and execution logged to JSONL
+
+---
+
+## Hero Demo -- 30-Second Proof
+
+```bash
+npm install && npm run build
+npm run autonomous-demo          # 3 agents, real protocol calls, full output
+```
+
+What you will see:
+1. Three agents initialize with encrypted wallets
+2. PolicyEngine loads per-agent spending rules
+3. Each agent wraps SOL -> wSOL (Jupiter), transfers to peers, writes on-chain memos
+4. Agents call adaptRisk() -- risk multiplier adjusts based on win/loss history
+5. Full audit summary prints at the end
+
+---
+
+## Architecture at a Glance
+
+```
++-------------------------------------------------------------+
+|                   AI Agent (Agent.ts)                       |
+|  State machine - Scoring engine - Feedback loop             |
++--------------------------+----------------------------------+
+                           | Decision
++--------------------------v----------------------------------+
+|               PolicyEngine (PolicyEngine.ts)                |
+|  maxPerTx - dailyCap - actionWhitelist - cooldown - ...     |
++--------------------------+----------------------------------+
+                           | Allowed?
++--------------------------v----------------------------------+
+|            ExecutionEngine (ExecutionEngine.ts)              |
+|  Permission scope - Rate limit - Volume cap - AuditLogger   |
++--------------------------+----------------------------------+
+                           | Sign + Broadcast
++--------------------------v----------------------------------+
+|   Agentic Wallet (AgenticWallet.ts / SecureKeyStore.ts)     |
+|  Keypair encrypted at rest - Autonomous signing             |
++--------------------------+----------------------------------+
+                           |
++--------------------------v----------------------------------+
+|          Solana Devnet + Protocol Layer                      |
+|  SOL transfers - SPL tokens - Token-2022 - Jupiter - Memo   |
++-------------------------------------------------------------+
+```
+
+---
 
 ## Key Security Features
 
 | Feature | Implementation |
 |---------|----------------|
-| Key Isolation | Agent cannot read private keys |
+| Key Isolation | Agent logic **cannot** read private keys |
 | Encrypted Storage | AES-256-GCM + PBKDF2 (100k iterations) |
-| Permission Scoping | Whitelisted actions only |
-| Transaction Limits | Per-tx and daily volume caps |
-| Rate Limiting | Sliding window per minute |
+| PolicyEngine | Composable, inspectable per-agent spending rules |
+| Permission Scoping | Whitelisted actions, destinations, amounts |
+| Transaction Limits | Per-tx cap + daily volume cap |
+| Rate Limiting | Sliding-window per minute |
 | Destination Control | Optional recipient whitelist |
-| Memory Hygiene | Keys zeroed immediately after use |
+| Memory Hygiene | Secret keys zeroed after signing |
+| Audit Trail | Append-only JSONL log of every check and execution |
 
-## Architecture
+---
 
-### Core Components
+## PolicyEngine -- Composable Spending Rules
 
+The standalone PolicyEngine sits between agent decisions and on-chain execution. Every transaction must pass **all** active policies:
+
+```typescript
+import {
+  PolicyEngine,
+  maxPerTransaction,
+  dailySpendingCap,
+  actionWhitelist,
+  cooldownBetweenTx,
+} from './security/PolicyEngine';
+
+const policy = new PolicyEngine();
+policy.addPolicy(maxPerTransaction(0.5));           // Max 0.5 SOL per tx
+policy.addPolicy(dailySpendingCap(5));              // Max 5 SOL/day
+policy.addPolicy(cooldownBetweenTx(5000));          // 5s between txs
+policy.addPolicy(actionWhitelist(['transfer_sol', 'swap']));
+
+const result = policy.evaluate({
+  agentId: 'trader-alpha',
+  action: 'swap',
+  amount: 0.3,
+  timestamp: Date.now(),
+});
+
+console.log(result.allowed);     // true
+console.log(result.violations);  // []
 ```
-┌─────────────────────────────────────────────────┐
-│         AI Agent Decision Engine                │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│   Agent Wallet Execution Layer (Agent.ts)      │
-│  - Decision evaluation                          │
-│  - Transaction simulation                       │
-│  - Strategy implementation                      │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│    Agentic Wallet (AgenticWallet.ts)           │
-│  - Autonomous signing                           │
-│  - Fund management                              │
-│  - Transaction broadcasting                     │
-│  - Key storage                                  │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│    Solana RPC & Token Manager                   │
-│  - SPL token interactions                       │
-│  - On-chain protocol integration                │
-└─────────────────────────────────────────────────┘
+
+**9 built-in policy factories**: maxPerTransaction, dailySpendingCap, dailyTransactionLimit, cooldownBetweenTx, actionWhitelist, allowedRecipients, minimumBalanceReserve, maxPercentOfBalance, tradingWindow
+
+**3 preset bundles**: createTradingPolicies(), createLiquidityPolicies(), createMonitorPolicies()
+
+---
+
+## Agent Feedback Loop -- Visible Learning
+
+Agents do not just execute -- they **learn**. After each round, adaptRisk() adjusts the agent's risk multiplier based on recent outcomes:
+
+```typescript
+// After executing a decision:
+agent.recordOutcome(success);   // Track win/loss in sliding window
+
+// End of round -- agent adapts:
+const feedback = agent.adaptRisk();
+// -> [Trader Alpha] ADAPT round 3: risk 1.0->1.1 (Win rate 80% > 70% -> risk up)
+
+// Risk multiplier scales all future trade sizes
+// High wins -> bigger trades, losses -> smaller trades
 ```
+
+The full feedback history is available via agent.getFeedbackLog() -- an array of timestamped entries showing exactly how the agent adapted over time.
+
+---
+
+## Protocol Interactions (Real On-Chain)
+
+| Protocol | What It Does | Action Type |
+|----------|-------------|-------------|
+| **SOL Transfers** | Send SOL between agent wallets | transfer_sol |
+| **SPL Token Ops** | Create accounts, transfer tokens | transfer_token |
+| **Token-2022** | Transfer fees, soulbound, metadata, interest | Extensions |
+| **Jupiter DEX** | Swap quotes + SOL to wSOL wrap/unwrap | swap |
+| **SPL Memo v2** | On-chain memos (audit anchors) | write_memo |
+
+All protocol calls happen through the ExecutionEngine -> PolicyEngine -> AuditLogger pipeline.
+
+---
+
+## Multi-Agent Simulation
+
+Three independent agents with different strategies run concurrently:
+
+| Agent | Strategy | Risk Profile |
+|-------|----------|-------------|
+| Trader Alpha | Trading | Aggressive, 5-15% of balance per trade |
+| LP Beta | Liquidity Provider | Conservative, stakes + harvests |
+| Arb Gamma | Arbitrage | Fast, small 3% trades |
+
+Each agent has:
+- Its own encrypted wallet
+- Its own PolicyEngine configuration
+- Independent state machine (idle -> evaluating -> executing -> cooldown)
+- Circuit breaker (3 consecutive failures -> halt)
+- Exponential backoff cooldown
+- Visible feedback/learning loop
+
+---
 
 ## Project Structure
 
 ```
 solana-agentic-wallet/
-├── src/
-│   ├── wallet/                   # Basic wallet engine
-│   │   ├── AgenticWallet.ts      # Core wallet implementation
-│   │   └── TokenManager.ts       # SPL token operations
-│   ├── security/                 # Secure execution layer
-│   │   ├── SecureKeyStore.ts     # AES-256-GCM encrypted storage
-│   │   ├── ExecutionEngine.ts    # Permission-scoped execution
-│   │   └── SecureAgenticWallet.ts # Unified secure wallet API
-│   ├── agents/
-│   │   ├── Agent.ts              # Individual agent class
-│   │   └── simulation.ts         # Multi-agent test harness
-│   ├── scripts/
-│   │   ├── secureWalletDemo.ts   # Security features demo
-│   │   ├── multiAgentSimulation.ts # 3-agent simulation
-│   │   ├── liveTrading.ts        # Live devnet trading
-│   │   └── ...                   # Other utilities
-│   ├── cli.ts                    # Interactive command-line interface
-│   └── index.ts                  # Main entry point
-├── secure-wallets/               # Encrypted wallet storage
-├── simulation-wallets/           # Multi-agent simulation wallets
-├── SECURITY.md                   # Security architecture deep dive
-├── SKILLS.md                     # Agent operator manual
-├── DEEP_DIVE.md                  # Technical documentation
-├── ARCHITECTURE.md               # System architecture + diagrams
-└── README.md
++-- src/
+|   +-- wallet/
+|   |   +-- AgenticWallet.ts          # Core wallet: create, sign, send
+|   |   +-- TokenManager.ts           # SPL token operations
+|   |   +-- TokenExtensionsManager.ts # Token-2022 extensions
+|   +-- security/
+|   |   +-- PolicyEngine.ts           # Composable spending-rule engine
+|   |   +-- ExecutionEngine.ts        # Permission-scoped tx execution
+|   |   +-- SecureKeyStore.ts         # AES-256-GCM encrypted storage
+|   |   +-- SecureAgenticWallet.ts    # Unified secure wallet API
+|   |   +-- AuditLogger.ts           # Append-only JSONL audit trail
+|   +-- agents/
+|   |   +-- Agent.ts                  # AI agent: state machine + feedback loop
+|   |   +-- simulation.ts            # Multi-agent test harness
+|   +-- protocols/
+|   |   +-- JupiterClient.ts         # Jupiter v6 API + wSOL wrapping
+|   +-- scripts/
+|   |   +-- autonomousAgentDemo.ts    # Hero demo: 3 agents, full loop
+|   |   +-- multiAgentSimulation.ts   # Multi-agent simulation
+|   |   +-- swapDemo.ts              # Jupiter swap demo
+|   |   +-- memoDemo.ts              # Memo program demo
+|   |   +-- ...
+|   +-- cli.ts                        # Interactive CLI
+|   +-- index.ts                      # All exports
++-- ARCHITECTURE.md                   # System architecture + ASCII diagrams
++-- SECURITY.md                       # Security model deep dive
++-- SKILLS.md                         # Agent operator manual (527 lines)
++-- DEEP_DIVE.md                      # Technical documentation
++-- README.md
 ```
+
+---
 
 ## Installation
 
-### Prerequisites
-
-- Node.js 16+ 
-- npm or yarn
-- Devnet wallet with SOL (for testing)
-
-### Setup
-
 ```bash
-# Clone or navigate to project directory
-cd solana-agentic-wallet
-
-# Install dependencies
+# Prerequisites: Node.js 16+, npm
+git clone https://github.com/DVO1111/SOLANA-AGENTIC-WALLET.git
+cd SOLANA-AGENTIC-WALLET
 npm install
-
-# Build TypeScript
 npm run build
-
-# Set up environment variables
-echo "WALLET_ADDRESS=<your-wallet-address>" > .env
 ```
 
-## Usage
-
-### Quick Start
+## Commands
 
 ```bash
-# Run the interactive CLI
-npm run cli
+# Autonomous Demo -- 3 AI agents, real protocol calls, audit trail
+npm run autonomous-demo
 
-# Or run the main demo
-npm run dev
-```
-
-### Available Commands
-
-```bash
-# Security Demo - Encrypted wallets, permission enforcement
-npm run secure
-
-# Multi-Agent Simulation - 3 agents: rewards, fees, staking
-npm run simulate
-
-# Live Trading Demo - Real devnet transactions
-npm run live
-
-# Check Balance
-npm run devnet:check <wallet-address>
-
-# Memo Program Interaction — agents write on-chain memos
-npm run memo-demo
-
-# Jupiter Swap Demo — wSOL wrapping + DEX quote integration
+# Jupiter Swap Demo -- wSOL wrapping + DEX quote integration
 npm run swap-demo
 
-# ★ Autonomous Agent Demo — 3 AI agents, real protocol calls, audit trail
-npm run autonomous-demo
+# Memo Program Demo -- agents write on-chain memos
+npm run memo-demo
+
+# Multi-Agent Simulation -- 3 agents with scoring engine
+npm run simulate
+
+# Security Demo -- encrypted wallets, permission enforcement
+npm run secure
+
+# Live Trading Demo -- real devnet transactions
+npm run live
+
+# Interactive CLI
+npm run cli
+
+# Devnet Utilities
+npm run devnet:check <wallet-address>
+npm run devnet:airdrop <wallet-address>
 ```
 
-### Secure Wallet (Recommended)
+---
+
+## Secure Wallet Usage
 
 ```typescript
 import { SecureAgenticWallet } from './security/SecureAgenticWallet';
 import { PermissionLevel } from './security/ExecutionEngine';
+import { createTradingPolicies } from './security/PolicyEngine';
 import * as web3 from '@solana/web3.js';
 
 const connection = new web3.Connection('https://api.devnet.solana.com');
 
-// Create wallet with encrypted storage
-const wallet = await SecureAgenticWallet.create(
-  connection,
-  './secure-wallets',
-  {
-    agentId: 'my-agent',
-    name: 'Trading Bot',
-    permissions: {
-      level: PermissionLevel.STANDARD,
-      maxTransactionAmount: 0.1,
-      maxDailyVolume: 1.0,
-      allowedActions: ['transfer_sol'],
-      rateLimit: 10,
-    },
+// Create wallet with encrypted storage + policy engine
+const wallet = await SecureAgenticWallet.create(connection, './secure-wallets', {
+  agentId: 'my-agent',
+  name: 'Trading Bot',
+  permissions: {
+    level: PermissionLevel.STANDARD,
+    maxTransactionAmount: 0.1,
+    maxDailyVolume: 1.0,
+    allowedActions: ['transfer_sol', 'swap'],
+    rateLimit: 10,
   },
-  'secure-password'
-);
+}, 'secure-password');
 
-// Execute with permission enforcement
+// Every execute() passes through PolicyEngine -> permissions -> rate limit -> sign
 const result = await wallet.execute({
   action: 'transfer_sol',
   destination: 'RecipientAddress...',
   amount: 0.05,
 });
-
-console.log('Transaction:', result.signature);
 ```
 
-### Basic Wallet (Legacy)
+---
 
-### Create an Agent
+## Features Checklist
 
-```typescript
-import { Agent } from './agents/Agent';
-import { AgenticWallet } from './wallet/AgenticWallet';
-import { TokenManager } from './wallet/TokenManager';
-
-const config = {
-  id: 'trader-1',
-  name: 'Autonomous Trading Bot',
-  strategy: 'trading' as const,
-  maxTransactionSize: 1,
-  autoApprove: true,
-};
-
-const agent = new Agent(config, wallet, tokenManager);
-
-// Agent can now evaluate and execute decisions autonomously
-const decision = {
-  type: 'transfer' as const,
-  targetAddress: 'GrKvW1twiXuwmDYvvMmMHrH8VWf5Q7S3C4q9gxJc9Ky',
-  amount: 0.1,
-  timestamp: Date.now(),
-};
-
-await agent.evaluateDecision(decision);
-```
-
-### Multi-Agent Simulation
-
-```typescript
-import { MultiAgentTestHarness } from './agents/simulation';
-import * as web3 from '@solana/web3.js';
-
-const connection = new web3.Connection('https://api.devnet.solana.com');
-const harness = new MultiAgentTestHarness(connection);
-
-// Register multiple agents
-await harness.registerAgent({
-  id: 'trader-1',
-  name: 'Trader Alpha',
-  strategy: 'trading',
-  maxTransactionSize: 1,
-  autoApprove: true,
-});
-
-await harness.registerAgent({
-  id: 'lp-1',
-  name: 'Liquidity Provider Beta',
-  strategy: 'liquidity-provider',
-  maxTransactionSize: 5,
-  autoApprove: true,
-});
-
-// Run simulation round
-await harness.runSimulationRound(1);
-
-// Get report
-const report = await harness.getSimulationReport();
-console.log(report);
-```
-
-### Devnet Testing
-
-```bash
-# Request airdrop for wallet
-npm run devnet:airdrop <wallet-address>
-
-# Check wallet balance
-npm run devnet:check <wallet-address>
-```
-
-## Security Considerations
-
-### Key Isolation (NEW)
-
-Private keys are now **encrypted at rest** and **never exposed** to agent logic:
-
-```typescript
-// Keys encrypted with AES-256-GCM + PBKDF2
-// Agent CANNOT access private keys directly
-const wallet = await SecureAgenticWallet.load(...);
-wallet.getPrivateKey();  // ❌ Method doesn't exist
-
-// Keys decrypted ONLY during signing, then zeroed
-await wallet.execute({ action: 'transfer_sol', ... });
-```
-
-### Permission-Scoped Execution (NEW)
-
-Agents operate within strict permission boundaries:
-
-```typescript
-const permissions: AgentPermissions = {
-  level: PermissionLevel.STANDARD,
-  maxTransactionAmount: 0.05,    // Max 0.05 SOL per tx
-  maxDailyVolume: 0.5,           // Max 0.5 SOL per day
-  allowedActions: ['transfer_sol'],  // Whitelist only
-  rateLimit: 10,                 // Max 10 tx/minute
-};
-```
-
-### Transaction Policy Engine (NEW)
-
-Every transaction passes multi-layer validation:
-
-1. **Action Check** - Is action type allowed?
-2. **Amount Check** - Within per-tx limit?
-3. **Volume Check** - Within daily limit?
-4. **Rate Check** - Within tx/minute limit?
-5. **Destination Check** - Recipient whitelisted?
-6. **Balance Check** - Sufficient funds?
-
-### Sandboxed Environment
-
-All agent operations run in controlled context:
-
-- **Network**: Devnet only (mainnet blocked)
-- **Funds**: Capped per agent
-- **Monitoring**: Full audit logging
-- **Isolation**: Each agent completely separate
-
-> **See [SECURITY.md](SECURITY.md) for complete security architecture.**
-
-## Wallet Design Deep Dive
-
-### Autonomous Transaction Signing
-
-The agentic wallet implements autonomous signing through:
-
-1. **Keypair Management**
-   ```typescript
-   // Agent holds encrypted keypair
-   private keypair: web3.Keypair;
-   
-   // Signs transactions without user interaction
-   async signTransaction(transaction: web3.Transaction) {
-     transaction.sign(this.keypair);
-     return transaction;
-   }
-   ```
-
-2. **Transaction Lifecycle**
-   ```
-   Decision → Evaluate → Execute → Sign → Broadcast → Confirm
-   ```
-
-3. **Decision Evaluation Engine**
-   - Check transaction size against limit
-   - Verify agent strategy alignment
-   - Evaluate market conditions (extensible)
-   - Execute if conditions met
-
-### Multi-Agent Architecture
-
-Each agent operates independently:
-
-- **Isolated Wallets**: Own keypair, no shared funds
-- **Independent Strategies**: Trading, liquidity provision, arbitrage
-- **Parallel Execution**: Multiple agents can transact simultaneously
-- **Failure Isolation**: One agent's failure doesn't affect others
-
-### Protocol Interaction
-
-Current capabilities:
-- Direct SOL transfers
-- SPL token operations (via TokenManager)
-- Associated Token Account creation
-- Transaction history retrieval
-- **SPL Memo Program v2** — agents write structured on-chain memos (`write_memo` action)
-- Token-2022 extensions (transfer fees, soulbound, metadata, interest-bearing)
-- **Jupiter Swap Integration** — DEX aggregator quotes + SOL ↔ wSOL wrapping (`swap` action)
-- **Persistent Audit Trail** — JSONL append-only log of every permission/rate/volume check and execution
-
-Extensible for:
-- Lending protocols (Solend, Anchor)
-- NFT operations
-- Governance voting
-
-## Features Implemented
-
-### ✅ Core Features
-- [x] Create wallets programmatically
+### Core Wallet
+- [x] Create wallets programmatically (Keypair.generate())
 - [x] Autonomous transaction signing
 - [x] Hold SOL and SPL tokens
-- [x] Protocol interaction (Memo Program, Token-2022)
-- [x] DeFi integration (Jupiter swap, wSOL wrap/unwrap)
-- [x] Persistent audit trail (JSONL)
-- [x] Multi-agent support
-- [x] Transaction logging and history
+- [x] Encrypted key storage (AES-256-GCM)
 
-### ✅ Agent Capabilities
-- [x] Decision evaluation framework
-- [x] Strategy patterns (trading, LP)
-- [x] Auto-approval workflows
-- [x] Transaction execution
-- [x] Performance metrics
+### Agent Intelligence
+- [x] State machine (idle -> evaluating -> executing -> cooldown)
+- [x] Decision scoring engine (0->1, 6 rules)
+- [x] Strategy patterns (trading, LP, arbitrage)
+- [x] Circuit breaker (3 failures -> halt)
+- [x] **Feedback loop** -- adaptRisk() adjusts between rounds
+- [x] Performance window with sliding win-rate tracking
 
-### ✅ Testing & Simulation
+### Security and Policy
+- [x] **PolicyEngine** -- 9 composable policy factories
+- [x] Permission-scoped execution
+- [x] Rate limiting (sliding window)
+- [x] Daily volume caps
+- [x] Destination whitelisting
+- [x] Memory hygiene (keys zeroed after use)
+
+### Protocol Interaction
+- [x] SOL transfers
+- [x] SPL token operations
+- [x] Token-2022 extensions (fees, soulbound, metadata, interest)
+- [x] **Jupiter DEX** -- swap quotes + wSOL wrap/unwrap
+- [x] **SPL Memo v2** -- on-chain memos
+- [x] **Audit trail** -- append-only JSONL
+
+### Multi-Agent
+- [x] 3 concurrent agents with different strategies
+- [x] Independent wallets per agent
+- [x] Parallel execution
 - [x] Multi-agent test harness
-- [x] Simulation rounds
-- [x] Performance reporting
-- [x] Devnet integration
 
-### ✅ Developer Experience
-- [x] Interactive CLI
-- [x] Devnet utilities (airdrop, balance check)
-- [x] Clear API documentation
-- [x] TypeScript type safety
+### Observability
+- [x] AuditLogger (JSONL) -- every check and execution
+- [x] Transaction logging with success/failure
+- [x] CLI dashboard
+- [x] Web dashboard (React + Express)
 
-## Performance Metrics
+### Documentation
+- [x] README (you are reading it)
+- [x] ARCHITECTURE.md -- ASCII diagrams, component map
+- [x] SECURITY.md -- threat model, encryption details
+- [x] SKILLS.md -- operator manual (527 lines)
+- [x] DEEP_DIVE.md -- technical deep dive
 
-### Scalability
+---
 
-| Metric | Value |
-|--------|-------|
-| Agents | 100+ (limited by RPC rate limits) |
-| Concurrent Transactions | 10-50 (Solana rate limits) |
-| Transaction Finality | ~2 seconds (Solana) |
-| Key Generation | ~1ms per wallet |
+## Testing
 
-### Testing Results
-
-- ✅ Multi-agent simulation: 10 agents, 50 transactions
-- ✅ Transaction signing: < 1ms per transaction
-- ✅ Concurrent operations: Parallel execution verified
-- ✅ Error handling: Graceful failure and rollback
-
-## Extending the Wallet
-
-### Adding New Decision Types
-
-```typescript
-// In Agent.ts
-async executeDecision(decision: Decision) {
-  switch (decision.type) {
-    case 'swap':
-      // Implement swap logic
-      break;
-    case 'stake':
-      // Implement staking logic
-      break;
-  }
-}
-```
-
-### Adding New Token Operations
-
-```typescript
-// In TokenManager.ts
-async mintToken(
-  mintAddress: string,
-  amount: number
-): Promise<string> {
-  // Implement token minting
-}
-```
-
-### Integration with External AI Systems
-
-```typescript
-// Connect your AI decision engine
-const agentDecision = await aiModel.predictNextMove();
-await agent.evaluateDecision(agentDecision);
-```
-
-## Troubleshooting
-
-### Airdrop Issues
 ```bash
-# Insufficient funds
-npm run devnet:airdrop <wallet> # Request again
-
-# Already has funds
-npm run devnet:check <wallet>
+npm test                    # 42 tests across 3 suites
+npx tsc --noEmit           # Full type-check
 ```
 
-### Transaction Failures
-- Insufficient funds
-- Invalid recipient address
-- Network congestion (wait and retry)
-- Transaction too large (check `maxTransactionSize`)
+| Suite | Tests | Coverage |
+|-------|-------|---------|
+| AgenticWallet | 16 | Wallet creation, signing, balance |
+| Agent | 14 | Scoring engine, state machine, strategies |
+| TokenManager | 12 | SPL operations, Token-2022 |
 
-### Build Issues
-```bash
-npm run build  # Recompile
-npm run lint   # Check for errors
-```
+---
 
 ## Future Enhancements
 
-### Security
-- [ ] Hardware wallet integration
+- [ ] Hardware wallet integration (Ledger)
 - [ ] Multi-signature approval
-- [ ] Risk assessment module
-- [ ] Fraud detection engine
-
-### Functionality
-- [ ] Swap program integration
-- [ ] Lending protocol support
+- [ ] Lending protocol support (Solend)
 - [ ] NFT operations
 - [ ] Governance voting
-
-### Performance
 - [ ] Transaction batching
-- [ ] Compressed state for efficiency
-- [ ] Off-chain computation
-- [ ] Caching layer
-
-### DevOps
 - [ ] Docker containerization
-- [ ] Kubernetes deployment
-- [ ] Monitoring and alerting
-- [ ] Database logging
+
+---
 
 ## Resources
 
 - [Solana Documentation](https://docs.solana.com)
 - [Web3.js Library](https://solana-labs.github.io/solana-web3.js/)
 - [SPL Token Program](https://spl.solana.com/token)
-- [Solana Devnet Faucet](https://faucet.solana.com)
+- [Jupiter API](https://station.jup.ag/docs)
 
 ## License
 
 MIT
 
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
-## Support
-
-For issues and questions:
-- Check existing GitHub issues
-- Create a new issue with detailed description
-- Include error logs and reproduction steps
-
 ---
 
-**Ready to build the future of autonomous AI agents on Solana!**
+**Built for the Solana Agentic Wallet bounty -- autonomous agents managing real on-chain assets.**

@@ -17,3 +17,25 @@ export {
 export type { SecureWalletConfig } from './SecureAgenticWallet';
 export { AuditLogger } from './AuditLogger';
 export type { AuditEntry, AuditEvent, AuditVerdict, AuditFilter } from './AuditLogger';
+export {
+  PolicyEngine,
+  maxPerTransaction,
+  dailySpendingCap,
+  dailyTransactionLimit,
+  cooldownBetweenTx,
+  actionWhitelist,
+  allowedRecipients,
+  minimumBalanceReserve,
+  maxPercentOfBalance,
+  tradingWindow,
+  createTradingPolicies,
+  createLiquidityPolicies,
+  createMonitorPolicies,
+} from './PolicyEngine';
+export type {
+  PolicyRequest,
+  PolicyViolation,
+  PolicyResult,
+  PolicyFn,
+  PolicyState,
+} from './PolicyEngine';

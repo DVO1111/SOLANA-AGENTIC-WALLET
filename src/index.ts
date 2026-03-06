@@ -4,7 +4,7 @@ import { TokenManager } from './wallet/TokenManager';
 import { TokenExtensionsManager } from './wallet/TokenExtensionsManager';
 import type { TokenExtension, ExtendedMintConfig, ExtendedMintResult } from './wallet/TokenExtensionsManager';
 import { Agent, AgentConfig } from './agents/Agent';
-import type { AgentState, StrategyContext } from './agents/Agent';
+import type { AgentState, StrategyContext, FeedbackEntry } from './agents/Agent';
 import { MultiAgentTestHarness } from './agents/simulation';
 import {
   SecureAgenticWallet,
@@ -13,6 +13,10 @@ import {
   createDefaultPermissions,
   PermissionLevel,
   AuditLogger,
+  PolicyEngine,
+  createTradingPolicies,
+  createLiquidityPolicies,
+  createMonitorPolicies,
 } from './security';
 import type {
   AgentPermissions,
@@ -23,13 +27,17 @@ import type {
   AuditEvent,
   AuditVerdict,
   AuditFilter,
+  PolicyRequest,
+  PolicyViolation,
+  PolicyResult,
+  PolicyFn,
 } from './security';
 import { JupiterClient, KNOWN_MINTS } from './protocols';
 import type { JupiterQuote, SwapResult, WrapResult } from './protocols';
 
 // Basic wallet exports
 export { AgenticWallet, TokenManager, TokenExtensionsManager, Agent, MultiAgentTestHarness };
-export type { AgentConfig, AgentState, StrategyContext, TokenExtension, ExtendedMintConfig, ExtendedMintResult };
+export type { AgentConfig, AgentState, StrategyContext, FeedbackEntry, TokenExtension, ExtendedMintConfig, ExtendedMintResult };
 
 // Secure wallet exports
 export {
@@ -39,6 +47,10 @@ export {
   createDefaultPermissions,
   PermissionLevel,
   AuditLogger,
+  PolicyEngine,
+  createTradingPolicies,
+  createLiquidityPolicies,
+  createMonitorPolicies,
 };
 export type {
   AgentPermissions,
@@ -49,6 +61,10 @@ export type {
   AuditEvent,
   AuditVerdict,
   AuditFilter,
+  PolicyRequest,
+  PolicyViolation,
+  PolicyResult,
+  PolicyFn,
 };
 
 // Protocol exports
