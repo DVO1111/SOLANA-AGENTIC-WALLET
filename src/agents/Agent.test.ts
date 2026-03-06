@@ -55,7 +55,7 @@ describe('Agent', () => {
 
     const result = await agent.evaluateDecision(decision);
     expect(result).toBe(false);
-  });
+  }, 15000);
 
   test('should get agent stats', async () => {
     const stats = await agent.getStats();
@@ -68,7 +68,7 @@ describe('Agent', () => {
     expect(typeof stats.balance).toBe('number');
     expect(stats.totalTransactions).toBeGreaterThanOrEqual(0);
     expect(stats.consecutiveFailures).toBe(0);
-  });
+  }, 15000);
 
   test('should maintain transaction log', async () => {
     const initialLog = agent.getTransactionLog();

@@ -3,9 +3,12 @@ import { AgenticWallet } from './wallet/AgenticWallet';
 import { TokenManager } from './wallet/TokenManager';
 import { TokenExtensionsManager } from './wallet/TokenExtensionsManager';
 import type { TokenExtension, ExtendedMintConfig, ExtendedMintResult } from './wallet/TokenExtensionsManager';
+import { HDWalletFactory } from './wallet/HDWalletFactory';
 import { Agent, AgentConfig } from './agents/Agent';
 import type { AgentState, StrategyContext, FeedbackEntry } from './agents/Agent';
 import { MultiAgentTestHarness } from './agents/simulation';
+import { RuleBasedBrain, LLMBrain, createBrain } from './agents/AgentBrain';
+import type { IAgentBrain, EnvironmentState, AgentIntent, ReasoningTrace } from './agents/AgentBrain';
 import {
   SecureAgenticWallet,
   SecureKeyStore,
@@ -17,6 +20,8 @@ import {
   createTradingPolicies,
   createLiquidityPolicies,
   createMonitorPolicies,
+  SecureEnclave,
+  EnclaveError,
 } from './security';
 import type {
   AgentPermissions,
@@ -31,13 +36,21 @@ import type {
   PolicyViolation,
   PolicyResult,
   PolicyFn,
+  SigningAttestation,
+  EnclaveSignResult,
+  EnclaveStatus,
+  EnclavePolicy,
 } from './security';
 import { JupiterClient, KNOWN_MINTS } from './protocols';
 import type { JupiterQuote, SwapResult, WrapResult } from './protocols';
 
 // Basic wallet exports
-export { AgenticWallet, TokenManager, TokenExtensionsManager, Agent, MultiAgentTestHarness };
+export { AgenticWallet, TokenManager, TokenExtensionsManager, HDWalletFactory, Agent, MultiAgentTestHarness };
 export type { AgentConfig, AgentState, StrategyContext, FeedbackEntry, TokenExtension, ExtendedMintConfig, ExtendedMintResult };
+
+// Agent brain exports
+export { RuleBasedBrain, LLMBrain, createBrain };
+export type { IAgentBrain, EnvironmentState, AgentIntent, ReasoningTrace };
 
 // Secure wallet exports
 export {
@@ -51,6 +64,8 @@ export {
   createTradingPolicies,
   createLiquidityPolicies,
   createMonitorPolicies,
+  SecureEnclave,
+  EnclaveError,
 };
 export type {
   AgentPermissions,
@@ -65,6 +80,10 @@ export type {
   PolicyViolation,
   PolicyResult,
   PolicyFn,
+  SigningAttestation,
+  EnclaveSignResult,
+  EnclaveStatus,
+  EnclavePolicy,
 };
 
 // Protocol exports

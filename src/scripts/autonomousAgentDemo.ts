@@ -24,7 +24,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { AgenticWallet } from '../wallet/AgenticWallet';
 import { TokenManager } from '../wallet/TokenManager';
+import { HDWalletFactory } from '../wallet/HDWalletFactory';
 import { Agent, AgentConfig } from '../agents/Agent';
+import { createBrain, RuleBasedBrain, EnvironmentState, ReasoningTrace } from '../agents/AgentBrain';
 import { JupiterClient, KNOWN_MINTS } from '../protocols/JupiterClient';
 import { AuditLogger } from '../security/AuditLogger';
 
@@ -48,6 +50,7 @@ class AutonomousAgent {
   readonly jupiter: JupiterClient;
   readonly auditLogger: AuditLogger;
   readonly role: string;
+  readonly brain = createBrain();
 
   private tradeLog: Array<{
     round: number;
@@ -85,6 +88,56 @@ class AutonomousAgent {
     const state   = this.agent.getState();
 
     console.log(`\n  [${this.name}]  Balance: ${balance.toFixed(6)} SOL | State: ${state}`);
+
+    // ── 0. AGENT BRAIN REASONING ────────────────────
+    // The brain produces a structured chain-of-thought before any action.
+    const peerBalances: Array<{ address: string; balance: number }> = [];
+    for (const addr of peerAddresses) {
+      try {
+        const pBal = await this.wallet.getConnection().getBalance(new web3.PublicKey(addr)) / web3.LAMPORTS_PER_SOL;
+        peerBalances.push({ address: addr, balance: pBal });
+      } catch { peerBalances.push({ address: addr, balance: 0 }); }
+    }
+
+    const envState: EnvironmentState = {
+      agentId: this.id,
+      strategy: this.agent.getConfig().strategy as any,
+      balance,
+      peerBalances,
+      recentTrades: this.tradeLog.slice(-5).map((t) => ({
+        success: true, amount: t.amount, type: t.action, timestamp: Date.now(),
+      })),
+      riskMultiplier: 1.0,
+      consecutiveFailures: 0,
+      roundNumber: round,
+    };
+
+    const trace = await this.brain.reason(envState);
+
+    console.log(`    Brain (${trace.model}):`);
+    for (const thought of trace.thoughts.slice(0, 4)) {
+      console.log(`      → ${thought}`);
+    }
+    console.log(`    Intent: ${trace.intent.action} | Confidence: ${(trace.intent.confidence * 100).toFixed(0)}%`);
+    if (trace.intent.reasoning) {
+      console.log(`    Reason: ${trace.intent.reasoning}`);
+    }
+
+    this.auditLogger.log({
+      agentId: this.id, event: 'brain_reasoning',
+      verdict: 'info', details: {
+        model: trace.model,
+        intent: trace.intent.action,
+        confidence: trace.intent.confidence,
+        thoughts: trace.thoughts,
+        durationMs: trace.durationMs,
+      },
+    });
+
+    if (trace.intent.action === 'skip') {
+      console.log(`    ↳ Brain decided to skip this round`);
+      return;
+    }
 
     // ── 1. OBSERVE ──────────────────────────────────
     if (state === 'cooldown') {
@@ -232,10 +285,20 @@ async function main() {
   if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
   const auditLogger = new AuditLogger(path.join(logDir, 'autonomous-demo.jsonl'));
 
-  // ── PHASE 1: Create Agent Wallets ───────────────────────────────
+  // ── PHASE 1: Create Agent Wallets via HD Derivation ──────────
   console.log(`\n${LINE}`);
-  console.log('  Phase 1: Initialize Agents');
+  console.log('  Phase 1: HD Wallet Factory (BIP44 Derivation)');
   console.log(LINE);
+
+  // One master seed → infinite deterministic agent wallets
+  const hdFactory = HDWalletFactory.generate();
+  const mnemonic = hdFactory.getMnemonic();
+  const words = mnemonic.split(' ');
+  console.log(`\n  Master mnemonic (24 words — single backup restores ALL agents):`);
+  console.log(`    ${words.slice(0, 8).join(' ')}`);
+  console.log(`    ${words.slice(8, 16).join(' ')}`);
+  console.log(`    ${words.slice(16, 24).join(' ')}`);
+  console.log(`\n  Derivation path: m/44'/501'/<agentIndex>'/0' (Solana BIP44)`);
 
   const agentConfigs: Array<{ config: AgentConfig; role: string }> = [
     {
@@ -273,7 +336,9 @@ async function main() {
   const agents: AutonomousAgent[] = [];
 
   for (const { config, role } of agentConfigs) {
-    const wallet = AgenticWallet.create(connection);
+    // Derive wallet from master seed via BIP44 path
+    const derivation = hdFactory.deriveForAgent(config.id);
+    const wallet = new AgenticWallet(derivation.keypair, connection);
     const autoAgent = new AutonomousAgent(config, wallet, connection, auditLogger, role);
     agents.push(autoAgent);
 
@@ -282,9 +347,11 @@ async function main() {
       strategy: config.strategy,
       role,
       maxTransactionSize: config.maxTransactionSize,
+      derivationPath: derivation.path,
     });
 
     console.log(`\n  ${config.name} (${role})`);
+    console.log(`    Derived:  ${derivation.path}`);
     console.log(`    Wallet:   ${wallet.publicKey.toString()}`);
     console.log(`    Strategy: ${config.strategy}`);
     console.log(`    Max Tx:   ${config.maxTransactionSize} SOL`);
@@ -430,6 +497,15 @@ async function main() {
 
   auditLogger.close();
 
+  // Verify HD wallet integrity before cleanup
+  const integrityOk = hdFactory.verifyIntegrity();
+  console.log(`\n  HD Wallet integrity check: ${integrityOk ? '✓ PASS' : '✗ FAIL'}`);
+  console.log(`  All ${agents.length} agent wallets derived from single mnemonic`);
+
+  // Zero sensitive data
+  hdFactory.destroy();
+  console.log(`  Master seed zeroed from memory`);
+
   // ── Done ───────────────────────────────────────────────────────
   console.log(`\n${DIVIDER}`);
   console.log('  DEMO COMPLETE');
@@ -437,15 +513,17 @@ async function main() {
   console.log(`
   What this demonstrated:
 
-    ✓ 3 independent AI agents with isolated wallets
-    ✓ Autonomous decision-making (observe → decide → execute)
+    ✓ HD Wallet Factory (BIP44): one mnemonic → 3 deterministic agent wallets
+    ✓ Agent Brain reasoning: structured chain-of-thought before every action
+    ✓ 3 independent AI agents with cryptographically isolated wallets
+    ✓ Autonomous decision-making (brain → decide → execute → log)
     ✓ Real DeFi protocol interaction (SOL ↔ wSOL wrapping)
     ✓ On-chain memo logging (SPL Memo Program)
     ✓ Peer-to-peer transfers between agents
     ✓ Strategy-specific behavior (trading, LP, arbitrage)
     ✓ Risk limits (max tx size, balance thresholds, cooldowns)
     ✓ Circuit breaker (3 consecutive failures → stop)
-    ✓ Persistent JSONL audit trail for every action
+    ✓ Persistent JSONL audit trail for every action + brain trace
     ✓ All transactions verifiable on Solana Explorer
   `);
 }

@@ -8,21 +8,29 @@
 
 ```
 +--------------------------------------------------------------+
+|  0. DERIVE     HD Wallet Factory (BIP44) → one mnemonic      |
+|                → deterministic wallet per agent               |
++--------------------------------------------------------------+
 |  1. OBSERVE    Agent reads balance, market signals, history  |
 +--------------------------------------------------------------+
-|  2. DECIDE     Scoring engine (0->1) picks action + size     |
+|  2. REASON     AgentBrain chain-of-thought (rule or LLM)     |
 +--------------------------------------------------------------+
-|  3. POLICY     PolicyEngine checks spending rules before tx  |
+|  3. DECIDE     Scoring engine (0->1) picks action + size     |
 +--------------------------------------------------------------+
-|  4. EXECUTE    ExecutionEngine signs & broadcasts on-chain   |
+|  4. POLICY     PolicyEngine checks spending rules before tx  |
 +--------------------------------------------------------------+
-|  5. LEARN      adaptRisk() adjusts future risk from results  |
+|  5. EXECUTE    SecureEnclave signs within enclave boundary    |
++--------------------------------------------------------------+
+|  6. LEARN      adaptRisk() adjusts future risk from results  |
 +--------------------------------------------------------------+
        ^                                           |
        +-------------- next round ----------------+
 ```
 
 This is **not** a script that sends one transfer. It is a full autonomous agent system with:
+- **HD Wallet Factory** -- BIP44 derivation: one 24-word mnemonic → infinite deterministic agent wallets
+- **AgentBrain** -- structured chain-of-thought reasoning (rule engine + LLM via Claude API)
+- **SecureEnclave** -- TEE/HSM simulation with signing attestation records
 - **3 distinct AI agents** (trader, LP, arbitrageur) running concurrently
 - **Composable PolicyEngine** -- modular spending rules enforced before every tx
 - **Real protocol interaction** -- Jupiter DEX quotes, wSOL wrap/unwrap, SPL Memo on-chain
@@ -40,11 +48,12 @@ npm run autonomous-demo          # 3 agents, real protocol calls, full output
 ```
 
 What you will see:
-1. Three agents initialize with encrypted wallets
-2. PolicyEngine loads per-agent spending rules
-3. Each agent wraps SOL -> wSOL (Jupiter), transfers to peers, writes on-chain memos
-4. Agents call adaptRisk() -- risk multiplier adjusts based on win/loss history
-5. Full audit summary prints at the end
+1. HD Wallet Factory derives 3 agent wallets from a single 24-word mnemonic (BIP44)
+2. AgentBrain reasons via chain-of-thought before every action
+3. PolicyEngine loads per-agent spending rules
+4. Each agent wraps SOL -> wSOL (Jupiter), transfers to peers, writes on-chain memos
+5. Agents call adaptRisk() -- risk multiplier adjusts based on win/loss history
+6. Full audit summary prints at the end (including brain traces)
 
 ---
 
@@ -52,6 +61,18 @@ What you will see:
 
 ```
 +-------------------------------------------------------------+
+|            HD Wallet Factory (HDWalletFactory.ts)            |
+|  BIP44 derivation: m/44'/501'/<index>'/0' per agent         |
+|  24-word mnemonic → deterministic wallets                   |
++--------------------------+----------------------------------+
+                           | Keypair
++--------------------------v----------------------------------+
+|          AgentBrain (AgentBrain.ts)                          |
+|  RuleBasedBrain (default) | LLMBrain (Claude API)           |
+|  Chain-of-thought → AgentIntent                             |
++--------------------------+----------------------------------+
+                           | Intent
++--------------------------v----------------------------------+
 |                   AI Agent (Agent.ts)                       |
 |  State machine - Scoring engine - Feedback loop             |
 +--------------------------+----------------------------------+
@@ -67,6 +88,8 @@ What you will see:
 +--------------------------+----------------------------------+
                            | Sign + Broadcast
 +--------------------------v----------------------------------+
+|   SecureEnclave (SecureEnclave.ts)                           |
+|  TEE/HSM simulation - Signing attestation - Policy checks   |
 |   Agentic Wallet (AgenticWallet.ts / SecureKeyStore.ts)     |
 |  Keypair encrypted at rest - Autonomous signing             |
 +--------------------------+----------------------------------+
@@ -83,15 +106,17 @@ What you will see:
 
 | Feature | Implementation |
 |---------|----------------|
+| **HD Wallet (BIP44)** | One mnemonic → deterministic wallets per agent |
 | Key Isolation | Agent logic **cannot** read private keys |
 | Encrypted Storage | AES-256-GCM + PBKDF2 (100k iterations) |
+| **SecureEnclave** | TEE/HSM simulation with HMAC-SHA256 attestation |
 | PolicyEngine | Composable, inspectable per-agent spending rules |
 | Permission Scoping | Whitelisted actions, destinations, amounts |
 | Transaction Limits | Per-tx cap + daily volume cap |
 | Rate Limiting | Sliding-window per minute |
 | Destination Control | Optional recipient whitelist |
-| Memory Hygiene | Secret keys zeroed after signing |
-| Audit Trail | Append-only JSONL log of every check and execution |
+| Memory Hygiene | Secret keys + mnemonic zeroed after use |
+| Audit Trail | Append-only JSONL log of every check, brain trace, and execution |
 
 ---
 
@@ -128,6 +153,100 @@ console.log(result.violations);  // []
 **9 built-in policy factories**: maxPerTransaction, dailySpendingCap, dailyTransactionLimit, cooldownBetweenTx, actionWhitelist, allowedRecipients, minimumBalanceReserve, maxPercentOfBalance, tradingWindow
 
 **3 preset bundles**: createTradingPolicies(), createLiquidityPolicies(), createMonitorPolicies()
+
+---
+
+## HD Wallet Factory -- BIP44 Deterministic Derivation
+
+One master seed generates all agent wallets. Same mnemonic + index = same wallet, every time.
+
+```typescript
+import { HDWalletFactory } from './wallet/HDWalletFactory';
+
+// Generate master seed (24-word mnemonic)
+const factory = HDWalletFactory.generate();
+console.log(factory.getMnemonic()); // "abandon ability ..."
+
+// Derive wallets for each agent — BIP44 path m/44'/501'/<index>'/0'
+const trader = factory.deriveForAgent('trader-alpha');   // index 0
+const lp     = factory.deriveForAgent('lp-beta');        // index 1
+const arb    = factory.deriveForAgent('arb-gamma');      // index 2
+
+// Encrypted persistence (AES-256-GCM + PBKDF2)
+factory.saveTo('./hd-wallet.encrypted.json', 'strong-password');
+
+// Restore from backup
+const restored = HDWalletFactory.loadFrom('./hd-wallet.encrypted.json', 'strong-password');
+
+// Verify all derived keys match
+factory.verifyIntegrity(); // true
+
+// Zero sensitive data when done
+factory.destroy();
+```
+
+---
+
+## AgentBrain -- LLM-Driven Reasoning
+
+Structured chain-of-thought reasoning between on-chain state and wallet actions. Two implementations: rule-based (default, no API key) and LLM (Claude API).
+
+```typescript
+import { createBrain, RuleBasedBrain, EnvironmentState } from './agents/AgentBrain';
+
+// Auto-selects: LLM if AGENT_LLM_API_KEY env var is set, otherwise rule engine
+const brain = createBrain();
+
+const env: EnvironmentState = {
+  agentId: 'trader-alpha',
+  strategy: 'trading',
+  balance: 1.5,
+  peerBalances: [{ address: 'Abc...', balance: 0.8 }],
+  recentTrades: [{ success: true, amount: 0.1, type: 'transfer', timestamp: Date.now() }],
+  riskMultiplier: 1.0,
+  consecutiveFailures: 0,
+  roundNumber: 3,
+};
+
+const trace = await brain.reason(env);
+
+console.log(trace.model);       // 'rule-engine-v1' or 'claude-haiku'
+console.log(trace.thoughts);    // Step-by-step reasoning chain
+console.log(trace.intent);      // { action: 'swap', amount: 0.18, confidence: 0.75, reasoning: '...' }
+console.log(trace.durationMs);  // Time to reason
+```
+
+---
+
+## SecureEnclave -- TEE/HSM Simulation
+
+Keys never leave the enclave boundary. Every signing produces a cryptographic attestation record.
+
+```typescript
+import { SecureEnclave } from './security/SecureEnclave';
+import { SecureKeyStore } from './security/SecureKeyStore';
+
+const keyStore = new SecureKeyStore('./keystore');
+const enclave = new SecureEnclave(keyStore, 'enclave-prod-01', {
+  maxInstructions: 5,
+  maxValuePerSign: 1.0,  // SOL
+});
+
+// Sign within enclave — key is decrypted momentarily, then zeroed
+const result = await enclave.signTransaction(agentId, password, transaction);
+
+console.log(result.attestation.id);         // Unique attestation ID
+console.log(result.attestation.enclaveId);  // 'enclave-prod-01'
+console.log(result.attestation.signature);  // HMAC-SHA256 proof
+
+// Verify attestation authenticity
+const valid = enclave.verifyAttestation(result.attestation); // true
+
+// Production upgrade path
+const status = enclave.getStatus();
+console.log(status.productionPath);
+// → "Replace SecureKeyStore with AWS CloudHSM / Intel SGX. Interface stays identical."
+```
 
 ---
 
@@ -192,16 +311,19 @@ solana-agentic-wallet/
 +-- src/
 |   +-- wallet/
 |   |   +-- AgenticWallet.ts          # Core wallet: create, sign, send
+|   |   +-- HDWalletFactory.ts        # BIP44 HD derivation from mnemonic
 |   |   +-- TokenManager.ts           # SPL token operations
 |   |   +-- TokenExtensionsManager.ts # Token-2022 extensions
 |   +-- security/
 |   |   +-- PolicyEngine.ts           # Composable spending-rule engine
 |   |   +-- ExecutionEngine.ts        # Permission-scoped tx execution
 |   |   +-- SecureKeyStore.ts         # AES-256-GCM encrypted storage
+|   |   +-- SecureEnclave.ts          # TEE/HSM simulation + attestation
 |   |   +-- SecureAgenticWallet.ts    # Unified secure wallet API
 |   |   +-- AuditLogger.ts           # Append-only JSONL audit trail
 |   +-- agents/
 |   |   +-- Agent.ts                  # AI agent: state machine + feedback loop
+|   |   +-- AgentBrain.ts            # Chain-of-thought reasoning (rule + LLM)
 |   |   +-- simulation.ts            # Multi-agent test harness
 |   +-- protocols/
 |   |   +-- JupiterClient.ts         # Jupiter v6 API + wSOL wrapping
@@ -299,12 +421,17 @@ const result = await wallet.execute({
 ## Features Checklist
 
 ### Core Wallet
+- [x] **HD Wallet Factory** -- BIP44 derivation (m/44'/501'/index'/0')
+- [x] 24-word mnemonic backup → restore all agent wallets
 - [x] Create wallets programmatically (Keypair.generate())
 - [x] Autonomous transaction signing
 - [x] Hold SOL and SPL tokens
 - [x] Encrypted key storage (AES-256-GCM)
 
 ### Agent Intelligence
+- [x] **AgentBrain** -- structured chain-of-thought reasoning
+- [x] Rule-based engine (default, no API key)
+- [x] LLM reasoning (Claude API, opt-in via AGENT_LLM_API_KEY)
 - [x] State machine (idle -> evaluating -> executing -> cooldown)
 - [x] Decision scoring engine (0->1, 6 rules)
 - [x] Strategy patterns (trading, LP, arbitrage)
@@ -313,12 +440,15 @@ const result = await wallet.execute({
 - [x] Performance window with sliding win-rate tracking
 
 ### Security and Policy
+- [x] **SecureEnclave** -- TEE/HSM simulation with attestation
+- [x] Enclave-level signing policy (max ixs, allowed programs, max value)
+- [x] HMAC-SHA256 attestation records for every signing event
 - [x] **PolicyEngine** -- 9 composable policy factories
 - [x] Permission-scoped execution
 - [x] Rate limiting (sliding window)
 - [x] Daily volume caps
 - [x] Destination whitelisting
-- [x] Memory hygiene (keys zeroed after use)
+- [x] Memory hygiene (keys + mnemonic zeroed after use)
 
 ### Protocol Interaction
 - [x] SOL transfers
@@ -352,27 +482,29 @@ const result = await wallet.execute({
 ## Testing
 
 ```bash
-npm test                    # 42 tests across 3 suites
+npm test                    # 77 tests across 5 suites
 npx tsc --noEmit           # Full type-check
 ```
 
 | Suite | Tests | Coverage |
 |-------|-------|---------|
+| HDWalletFactory | 11 | BIP44 derivation, encrypted persistence, integrity |
+| PolicyEngine | 24 | All 9 policy factories, presets, composition |
 | AgenticWallet | 16 | Wallet creation, signing, balance |
 | Agent | 14 | Scoring engine, state machine, strategies |
-| TokenManager | 12 | SPL operations, Token-2022 |
+| TokenExtensions | 12 | SPL operations, Token-2022 |
 
 ---
 
 ## Future Enhancements
 
-- [ ] Hardware wallet integration (Ledger)
-- [ ] Multi-signature approval
-- [ ] Lending protocol support (Solend)
-- [ ] NFT operations
-- [ ] Governance voting
-- [ ] Transaction batching
-- [ ] Docker containerization
+- [ ] Hardware wallet integration (Ledger / YubiHSM)
+- [ ] Multi-signature approval flows
+- [ ] Lending protocol support (Solend / Marginfi)
+- [ ] NFT operations (Metaplex)
+- [ ] Governance voting (Realms)
+- [ ] Reinforcement learning agent brain
+- [ ] Docker containerization + CI/CD
 
 ---
 

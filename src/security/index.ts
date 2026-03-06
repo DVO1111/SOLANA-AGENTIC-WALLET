@@ -39,3 +39,10 @@ export type {
   PolicyFn,
   PolicyState,
 } from './PolicyEngine';
+export { SecureEnclave, EnclaveError } from './SecureEnclave';
+export type {
+  SigningAttestation,
+  EnclaveSignResult,
+  EnclaveStatus,
+  EnclavePolicy,
+} from './SecureEnclave';

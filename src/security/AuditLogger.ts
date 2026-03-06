@@ -16,6 +16,8 @@ export type AuditEvent =
   | 'agent_registered'
   | 'simulation'
   | 'swap'
+  | 'brain_reasoning'
+  | 'enclave_signing'
   | 'error';
 
 /**
