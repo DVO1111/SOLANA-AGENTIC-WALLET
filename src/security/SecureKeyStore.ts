@@ -112,7 +112,9 @@ export class SecureKeyStore {
       mode: 0o600, // Owner read/write only
     });
 
-    // Clear sensitive data from memory
+    // Clear sensitive data from memory.
+    // Buffer.fill(0) reliably zeroes the backing ArrayBuffer.
+    // See SECURITY.md for JS runtime memory hygiene limitations.
     secretKeyBuffer.fill(0);
     derivedKey.fill(0);
 

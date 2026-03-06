@@ -296,11 +296,27 @@ export class HDWalletFactory {
   }
 
   /**
-   * Zero out sensitive data when done
+   * Zero out sensitive data when done.
+   *
+   * Security note: In a JS/V8 runtime, string immutability means we cannot
+   * guarantee the mnemonic is fully erased from heap. We overwrite the
+   * Buffer-backed seed (which IS zeroed), reassign the mnemonic reference,
+   * and clear derivation records. For true memory isolation, run in a
+   * child_process or WASM sandbox and terminate after use.
+   * Production path: use an HSM/TEE where the mnemonic never enters JS.
    */
   destroy(): void {
+    // Zero the Buffer-backed seed (reliable)
     this.seed.fill(0);
+
+    // Overwrite mnemonic reference (best-effort in JS — see note above)
+    this.mnemonic = '0'.repeat(256);
     this.mnemonic = '';
+
+    // Clear derivation records from memory
+    this.derivations.length = 0;
+    this.nextIndex = 0;
+
     console.log('[HDWalletFactory] Sensitive data zeroed');
   }
 }

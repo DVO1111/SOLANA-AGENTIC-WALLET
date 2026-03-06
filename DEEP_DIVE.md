@@ -119,83 +119,75 @@ The agentic wallet is built on four foundational principles:
 
 ## 2. Security Architecture
 
-### 2.1 Threat Model
+### 2.1 Threat Model (Adversarial Analysis)
 
-#### Threat L1: Private Key Exposure
-**Impact**: HIGH - Complete wallet compromise
-**Mitigations**:
-- Keys stored in restricted files with narrow permissions
-- In-memory encryption (extendable)
-- Separate keypair per agent
-- No key transmission over network
+This section adopts a STRIDE-like analysis: for each threat we state the attack vector, the concrete mitigations implemented, and the **residual risk** that remains even after mitigation. Judges and auditors should evaluate residual risks against their own risk appetite.
 
-**Prevention Strategy**:
-```typescript
-// Use dedicated secure storage
-const wallet = AgenticWallet.fromSecureVault('agent-1', vault);
-```
+| # | Threat | Impact | Attack Vector | Mitigations | Residual Risk |
+|---|--------|--------|---------------|-------------|---------------|
+| T1 | **Private Key Extraction** | CRITICAL — full wallet drain | Attacker gains read access to process memory or encrypted key files | AES-256-GCM encryption at rest (PBKDF2 100k iterations); `Buffer.fill(0)` zeroes key material after use; `SecureKeyStore.retrieveKey()` returns cleanup callback; file permissions `0o600` | In a JS/V8 runtime, immutable strings (e.g. mnemonic) may persist in heap until GC. True mitigation requires HSM/TEE (see `SecureEnclave` simulation). |
+| T2 | **Compromised Agent Process** | HIGH — unauthorized transactions up to daily limit | Malicious code injected into agent runtime sends rogue transactions | PolicyEngine enforces per-tx cap, daily spend cap, and action whitelist; `allowedProgramIds` whitelist blocks calls to unapproved on-chain programs; rate limiter caps tx/minute; SecureEnclave requires password for each signing | Agent can still drain up to the configured `dailySpendingCap` before policies halt it. Operator should set conservative limits. |
+| T3 | **Rogue Program Interaction** | HIGH — agent signs arbitrary program call | Agent constructs a transaction targeting a malicious program ID | `allowedProgramIds` policy factory rejects instructions to non-whitelisted programs; `SecureEnclave.signTransaction()` independently checks program IDs at the enclave level | If the operator configures an overly permissive program whitelist, the agent can interact with any listed program. |
+| T4 | **Mnemonic / Seed Leakage** | CRITICAL — all agent wallets compromised | Attacker obtains the HD master mnemonic | Mnemonic encrypted at rest (AES-256-GCM); `HDWalletFactory.destroy()` zeroes seed Buffer and overwrites mnemonic reference; encrypted file uses unique salt + IV | JS string immutability means mnemonic bytes may linger in V8 heap. Production: store mnemonic only inside HSM; never expose to JS process. |
+| T5 | **Replay / Transaction Malleability** | MEDIUM — duplicate execution | Attacker replays a previously signed transaction | Solana's `recentBlockhash` makes transactions expire after ~60s; `SecureEnclave` optionally enforces `requireRecentBlockhash` policy; each tx is unique due to nonce | No additional risk beyond Solana's native replay protection. |
+| T6 | **Denial of Service** | MEDIUM — agent halted | Attacker floods agent with failing operations to trigger circuit breaker | Circuit breaker halts agent after 3 consecutive failures; exponential backoff; rate limiter prevents self-DoS | Agent is halted (by design) — requires operator intervention to resume. This is intentional fail-safe behavior. |
+| T7 | **Audit Log Tampering** | MEDIUM — loss of accountability | Attacker modifies or deletes JSONL audit logs | Append-only JSONL file; `AuditLogger` does not expose delete/modify APIs; on-chain memos provide immutable audit anchors | Local log files can be deleted by a privileged attacker. Mitigation: replicate logs to external SIEM or anchor critical entries on-chain via Memo. |
+| T8 | **LLM Prompt Injection** | LOW–MEDIUM — unexpected agent behavior | Malicious data in on-chain state or peer messages manipulates the LLM brain | `AgentBrain` outputs structured `AgentIntent` validated by PolicyEngine; LLM output is parsed as JSON with strict schema; rule-based fallback if parsing fails | If the LLM produces a syntactically valid but semantically malicious intent (e.g. max-amount transfer), the PolicyEngine is the final guardrail. Intent confidence threshold provides an additional gate. |
 
-#### Threat L2: Unauthorized Transaction Execution
-**Impact**: HIGH - Malicious transaction execution
-**Mitigations**:
-- Transaction size limits (maxTransactionSize)
-- Rate limiting per agent
-- Daily volume caps
-- Address whitelist (extensible)
+### 2.2 Memory Hygiene — Honest Assessment
 
-**Prevention Strategy**:
-```typescript
-const agentConfig = {
-  maxTransactionSize: 0.5,      // Max 0.5 SOL per transaction
-  maxDailyVolume: 10,            // Max 10 SOL per day
-  rateLimit: 10,                 // Max 10 txs per minute
-  whitelist: ['...addresses...'] // Only allow certain destinations
-};
-```
+This project uses the following memory hygiene techniques:
 
-#### Threat L3: Denial of Service (DoS)
-**Impact**: MEDIUM - Services disruption
-**Mitigations**:
-- Solana rate limits (1200 TPS)
-- Local rate limiting
-- Transaction batching
-- Exponential backoff retry
+| Technique | Where | Effectiveness |
+|-----------|-------|--------------|
+| `Buffer.fill(0)` on raw key bytes | `SecureKeyStore.storeKey()`, `SecureKeyStore.retrieveKey()` cleanup callback, `SecureEnclave.signTransaction()` finally block, `HDWalletFactory.destroy()` | **Reliable** — Node.js Buffers are backed by ArrayBuffer; `fill(0)` zeroes the underlying memory immediately. |
+| Overwrite + reassign mnemonic string | `HDWalletFactory.destroy()` | **Best-effort** — JS strings are immutable; we overwrite the reference with a dummy string then empty string. The original may persist in V8 heap until GC collects it. |
+| `cleanup()` callback pattern | `SecureKeyStore.retrieveKey()` returns `{ secretKey, cleanup }` | **Reliable** — forces callers to explicitly zero the decrypted key. `SecureEnclave` calls this in a `finally` block. |
+| Secure file deletion | `SecureKeyStore.deleteWallet()` | **Reliable** — overwrites file with `crypto.randomBytes(fileSize)` before `unlink`. |
 
-#### Threat L4: Application-Level Bugs
-**Impact**: MEDIUM - Unexpected behavior
-**Mitigations**:
-- Type safety (TypeScript)
-- Input validation
-- Comprehensive testing
-- Error handling and logging
+**Production recommendation**: For mainnet deployments, do not store mnemonic or private keys in the JS runtime at all. Use:
+- **HSM** (AWS CloudHSM, YubiHSM) — keys never leave hardware
+- **TEE** (Intel SGX, ARM TrustZone) — keys in isolated enclave
+- **MPC** (Fireblocks, Fordefi) — key shares across multiple parties
 
-### 2.2 Security Boundaries
+The `SecureEnclave` class simulates this interface (same API), so upgrading to real hardware requires no agent code changes.
+
+### 2.3 Security Boundaries
 
 ```
 Boundary 1: Network Security
 ├─ Encrypted RPC connections (HTTPS)
-├─ No key transmission
-└─ Transaction signature verification
+├─ No key transmission over network
+└─ Transaction signature verification (Ed25519)
 
-Boundary 2: Process Security
-├─ Isolated agent processes (optional)
-├─ Memory protection
-└─ No shared state between agents
+Boundary 2: Enclave Boundary (SecureEnclave)
+├─ Keys decrypted momentarily inside sign method
+├─ HMAC-SHA256 attestation for every signing event
+├─ Enclave-level policy checks (instruction count, program IDs, max value)
+└─ cleanup() callback zeroes key in finally block
 
-Boundary 3: Financial Security
-├─ Per-transaction limits
-├─ Per-agent fund allocation
-├─ Transaction fee protection
-└─ Balance floor requirements
+Boundary 3: Policy Boundary (PolicyEngine)
+├─ allowedProgramIds — blocks calls to unapproved on-chain programs
+├─ Per-transaction SOL limit
+├─ Daily aggregate spending cap
+├─ Action whitelist (transfer_sol, swap, write_memo, etc.)
+├─ Recipient whitelist (optional)
+└─ Time-of-day trading window
 
-Boundary 4: Operational Security
-├─ Audit logging
-├─ Transaction history
-├─ Decision tracking
-└─ Performance monitoring
+Boundary 4: Agent Boundary
+├─ Circuit breaker (3 failures → halt)
+├─ Scoring engine rejects low-confidence decisions
+├─ Feedback loop reduces risk multiplier on losses
+└─ Independent state per agent (no shared mutable state)
+
+Boundary 5: Observability Boundary
+├─ AuditLogger records every check and execution (JSONL)
+├─ Brain reasoning traces logged (chain-of-thought + intent)
+├─ On-chain memos provide immutable audit anchors
+└─ Solana Explorer links for every transaction
 ```
 
-### 2.3 Cryptographic Foundation
+### 2.4 Cryptographic Foundation
 
 #### Solana Keypair (Ed25519)
 
@@ -239,7 +231,7 @@ transaction.sign(keypair);     // Uses secretKey to create signature
    └─ Transaction executed if valid
 ```
 
-### 2.4 Network Security
+### 2.5 Network Security
 
 #### Devnet vs Mainnet
 

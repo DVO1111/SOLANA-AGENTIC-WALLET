@@ -40,6 +40,24 @@ This is **not** a script that sends one transfer. It is a full autonomous agent 
 
 ---
 
+## Live Devnet Proof
+
+Every transaction below was executed on Solana devnet and is independently verifiable on Solana Explorer. Click any link.
+
+| # | Action | Signature | Explorer |
+|---|--------|-----------|----------|
+| 1 | SOL Transfer (admin → trader) | `2BDT5zbf...9JCs` | [View on Explorer](https://explorer.solana.com/tx/2BDT5zbf7AuJb25rW9p45XjUx1JxkdaaRMRD64jW8U5oR6XnT7y4WNYpVFuYh2sL9ts8ViqRAVSVDM4jbiQr9JCs?cluster=devnet) |
+| 2 | On-Chain Memo (SPL Memo v2) | `iT5H5Xp3...sTUx` | [View on Explorer](https://explorer.solana.com/tx/iT5H5Xp3aSZ2sm4NcxcXXQCfF5NVk6W59c5acUtFf42mJ9QggDh9ugh4RGdngNBtAdijnfRsYW6ypjo2scPsTUx?cluster=devnet) |
+| 3 | SOL Transfer (trader → admin) | `4AfmoPCC...s8D` | [View on Explorer](https://explorer.solana.com/tx/4AfmoPCCHYvfD8zcw8uTkws6M7sxPr31qNx2TFK4oCRt8doiopsLXArDHb75hhKPgPZxjCChF8RtePxdhAdRus8D?cluster=devnet) |
+| 4 | wSOL Wrap (DeFi protocol) | `k2q5BSJe...ngvm` | [View on Explorer](https://explorer.solana.com/tx/k2q5BSJeVMtM5mwk7yrTWrBVVFN3eULH4TsLfLNAmzfY4chf2dcrD1Vuh8woiRnMqMsZTKoFbFM1PprJb3angvm?cluster=devnet) |
+| 5 | wSOL Unwrap (reclaim SOL) | `XdQQ2m3t...jPP` | [View on Explorer](https://explorer.solana.com/tx/XdQQ2m3tCkEiC2Ueku5kKHL5APhk7JrEq89jWkdFgamUUBiGe8X6wZHj3cMuNbnsHqHakzQizqNoALNfthZNjPP?cluster=devnet) |
+
+Agent wallets used:
+- **Admin**: `GqTjGuwipoKyJjR81w8WpqGhbMKLwWJwU7mVobZ1GXDS`
+- **Trader Alpha**: `8sk5XPHUvf3SGx2Mm336NhaiQnL66ken1pp1t5yVc4bw`
+
+---
+
 ## Hero Demo -- 30-Second Proof
 
 ```bash
@@ -130,6 +148,7 @@ import {
   maxPerTransaction,
   dailySpendingCap,
   actionWhitelist,
+  allowedProgramIds,
   cooldownBetweenTx,
 } from './security/PolicyEngine';
 
@@ -138,19 +157,25 @@ policy.addPolicy(maxPerTransaction(0.5));           // Max 0.5 SOL per tx
 policy.addPolicy(dailySpendingCap(5));              // Max 5 SOL/day
 policy.addPolicy(cooldownBetweenTx(5000));          // 5s between txs
 policy.addPolicy(actionWhitelist(['transfer_sol', 'swap']));
+policy.addPolicy(allowedProgramIds([                // Only these on-chain programs
+  '11111111111111111111111111111111',                // System Program
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',    // Token Program
+  'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',    // Memo v2
+]));
 
 const result = policy.evaluate({
   agentId: 'trader-alpha',
   action: 'swap',
   amount: 0.3,
   timestamp: Date.now(),
+  programIds: ['11111111111111111111111111111111'],   // System Program
 });
 
 console.log(result.allowed);     // true
 console.log(result.violations);  // []
 ```
 
-**9 built-in policy factories**: maxPerTransaction, dailySpendingCap, dailyTransactionLimit, cooldownBetweenTx, actionWhitelist, allowedRecipients, minimumBalanceReserve, maxPercentOfBalance, tradingWindow
+**10 built-in policy factories**: maxPerTransaction, dailySpendingCap, dailyTransactionLimit, cooldownBetweenTx, actionWhitelist, allowedRecipients, **allowedProgramIds**, minimumBalanceReserve, maxPercentOfBalance, tradingWindow
 
 **3 preset bundles**: createTradingPolicies(), createLiquidityPolicies(), createMonitorPolicies()
 

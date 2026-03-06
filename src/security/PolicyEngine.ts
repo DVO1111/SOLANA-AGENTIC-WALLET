@@ -28,6 +28,8 @@ export interface PolicyRequest {
   amount: number;              // SOL amount
   destination?: string;
   timestamp: number;
+  /** Program IDs of all instructions in the transaction (for program whitelist) */
+  programIds?: string[];
 }
 
 /**
@@ -229,6 +231,35 @@ export function tradingWindow(startHourUTC: number, endHourUTC: number): PolicyF
   };
 }
 
+/**
+ * Whitelist of allowed Solana program IDs.
+ * Prevents agents from signing instructions to unapproved on-chain programs.
+ *
+ * Example: only allow System Program, Token Program, and Memo:
+ *   allowedProgramIds([
+ *     '11111111111111111111111111111111',      // System
+ *     'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // Token
+ *     'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr', // Memo v2
+ *   ])
+ */
+export function allowedProgramIds(programIds: string[]): PolicyFn {
+  const allowed = new Set(programIds);
+  return (req) => {
+    if (!req.programIds || req.programIds.length === 0) {
+      return []; // No instruction-level data — skip (checked elsewhere)
+    }
+    const forbidden = req.programIds.filter((pid) => !allowed.has(pid));
+    if (forbidden.length > 0) {
+      return [{
+        policy: 'allowed_program_ids',
+        message: `Forbidden program(s): ${forbidden.map((p) => p.slice(0, 12) + '...').join(', ')}. Allowed: ${programIds.map((p) => p.slice(0, 12) + '...').join(', ')}`,
+        severity: 'block',
+      }];
+    }
+    return [];
+  };
+}
+
 // ─── PolicyEngine ───────────────────────────────────────────────
 
 /**
@@ -350,6 +381,13 @@ export function createTradingPolicies(): PolicyEngine {
   engine.addPolicy(dailyTransactionLimit(100), 'daily_tx_limit_100');
   engine.addPolicy(cooldownBetweenTx(5000), 'cooldown_5s');
   engine.addPolicy(actionWhitelist(['transfer_sol', 'transfer_token', 'swap', 'write_memo']), 'trading_actions');
+  engine.addPolicy(allowedProgramIds([
+    '11111111111111111111111111111111',                        // System Program
+    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',            // Token Program
+    'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',           // Associated Token Account
+    'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',            // Memo v2
+    'So11111111111111111111111111111111111111112',              // Wrapped SOL
+  ]), 'trading_programs');
   return engine;
 }
 
@@ -366,6 +404,14 @@ export function createLiquidityPolicies(): PolicyEngine {
     actionWhitelist(['transfer_sol', 'transfer_token', 'create_token_account', 'swap', 'write_memo']),
     'lp_actions'
   );
+  engine.addPolicy(allowedProgramIds([
+    '11111111111111111111111111111111',                        // System Program
+    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',            // Token Program
+    'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',            // Token-2022
+    'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',           // Associated Token Account
+    'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',            // Memo v2
+    'So11111111111111111111111111111111111111112',              // Wrapped SOL
+  ]), 'lp_programs');
   return engine;
 }
 

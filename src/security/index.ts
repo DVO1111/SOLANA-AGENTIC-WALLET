@@ -28,6 +28,7 @@ export {
   minimumBalanceReserve,
   maxPercentOfBalance,
   tradingWindow,
+  allowedProgramIds,
   createTradingPolicies,
   createLiquidityPolicies,
   createMonitorPolicies,

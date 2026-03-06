@@ -6,6 +6,7 @@ import {
   cooldownBetweenTx,
   actionWhitelist,
   allowedRecipients,
+  allowedProgramIds,
   maxPercentOfBalance,
   createTradingPolicies,
   createLiquidityPolicies,
@@ -129,6 +130,34 @@ describe('PolicyEngine', () => {
     });
   });
 
+  describe('allowedProgramIds', () => {
+    const SYSTEM = '11111111111111111111111111111111';
+    const TOKEN = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+    const EVIL = 'EvilProgram111111111111111111111111111111111';
+
+    it('allows whitelisted program IDs', () => {
+      const engine = new PolicyEngine();
+      engine.addPolicy(allowedProgramIds([SYSTEM, TOKEN]));
+      const result = engine.evaluate(makeRequest({ programIds: [SYSTEM] }));
+      expect(result.allowed).toBe(true);
+    });
+
+    it('blocks non-whitelisted program IDs', () => {
+      const engine = new PolicyEngine();
+      engine.addPolicy(allowedProgramIds([SYSTEM]));
+      const result = engine.evaluate(makeRequest({ programIds: [SYSTEM, EVIL] }));
+      expect(result.allowed).toBe(false);
+      expect(result.violations[0].policy).toBe('allowed_program_ids');
+    });
+
+    it('skips check when no programIds provided', () => {
+      const engine = new PolicyEngine();
+      engine.addPolicy(allowedProgramIds([SYSTEM]));
+      const result = engine.evaluate(makeRequest());
+      expect(result.allowed).toBe(true);
+    });
+  });
+
   describe('maxPercentOfBalance', () => {
     it('allows within percent threshold', () => {
       const engine = new PolicyEngine();
@@ -197,13 +226,15 @@ describe('PolicyEngine', () => {
   describe('preset bundles', () => {
     it('createTradingPolicies has expected policies', () => {
       const engine = createTradingPolicies();
-      expect(engine.policyCount).toBe(5);
+      expect(engine.policyCount).toBe(6);
       expect(engine.listPolicies()).toContain('max_per_tx_0.5');
+      expect(engine.listPolicies()).toContain('trading_programs');
     });
 
     it('createLiquidityPolicies has expected policies', () => {
       const engine = createLiquidityPolicies();
-      expect(engine.policyCount).toBe(5);
+      expect(engine.policyCount).toBe(6);
+      expect(engine.listPolicies()).toContain('lp_programs');
     });
 
     it('createMonitorPolicies blocks spending', () => {

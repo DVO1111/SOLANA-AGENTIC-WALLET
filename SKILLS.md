@@ -1,8 +1,160 @@
-# SKILLS.md - Agent Operator Manual
+# SKILLS.md - Agent Capability Manifest
 
-> **This file teaches AI agents how to use the Solana Agentic Wallet.**
+> **Machine-readable capability manifest for AI agents operating Solana Agentic Wallets.**
 > 
-> Think of this as a manual for AI operators.
+> Section 0 is the structured manifest (JSON schemas) for programmatic consumption.
+> Sections 1–9 provide detailed usage documentation.
+
+---
+
+## 0. Capability Manifest (Machine-Readable)
+
+```json
+{
+  "manifestVersion": "2.0.0",
+  "walletType": "solana-agentic-wallet",
+  "network": "devnet",
+  "baseUnit": "SOL",
+  "capabilities": [
+    {
+      "action": "transfer_sol",
+      "description": "Send SOL to a Solana address",
+      "requiredParams": {
+        "destination": { "type": "string", "format": "base58-pubkey", "description": "Recipient Solana address" },
+        "amount": { "type": "number", "unit": "SOL", "min": 0.000001, "description": "Amount in SOL" }
+      },
+      "optionalParams": {
+        "memo": { "type": "string", "maxLength": 566, "description": "Optional on-chain memo" }
+      },
+      "returns": {
+        "success": { "type": "boolean" },
+        "signature": { "type": "string", "format": "base58-signature", "nullable": true },
+        "error": { "type": "string", "nullable": true }
+      },
+      "estimatedFee": 0.000005,
+      "programIds": ["11111111111111111111111111111111"]
+    },
+    {
+      "action": "transfer_token",
+      "description": "Send SPL token to a Solana address",
+      "requiredParams": {
+        "destination": { "type": "string", "format": "base58-pubkey" },
+        "amount": { "type": "number", "description": "Human-readable token amount" },
+        "tokenMint": { "type": "string", "format": "base58-pubkey", "description": "Token mint address" },
+        "decimals": { "type": "integer", "min": 0, "max": 18, "description": "Token decimal places" }
+      },
+      "optionalParams": {
+        "memo": { "type": "string", "maxLength": 566 }
+      },
+      "returns": {
+        "success": { "type": "boolean" },
+        "signature": { "type": "string", "nullable": true },
+        "error": { "type": "string", "nullable": true }
+      },
+      "estimatedFee": 0.000005,
+      "programIds": ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"]
+    },
+    {
+      "action": "write_memo",
+      "description": "Write data to the SPL Memo Program (on-chain log)",
+      "requiredParams": {
+        "memo": { "type": "string", "maxLength": 566, "description": "Memo content (plain text or JSON)" }
+      },
+      "optionalParams": {},
+      "returns": {
+        "success": { "type": "boolean" },
+        "signature": { "type": "string", "nullable": true }
+      },
+      "estimatedFee": 0.000005,
+      "programIds": ["MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"]
+    },
+    {
+      "action": "swap",
+      "description": "DeFi swap via Jupiter (SOL <-> wSOL, or token swap)",
+      "requiredParams": {
+        "instructions": { "type": "TransactionInstruction[]", "description": "Pre-built via JupiterClient" }
+      },
+      "optionalParams": {
+        "slippageBps": { "type": "integer", "default": 50, "description": "Slippage tolerance in basis points" }
+      },
+      "returns": {
+        "success": { "type": "boolean" },
+        "signature": { "type": "string", "nullable": true },
+        "amount": { "type": "number", "nullable": true }
+      },
+      "estimatedFee": 0.000005,
+      "programIds": ["So11111111111111111111111111111111111111112"]
+    },
+    {
+      "action": "create_token_account",
+      "description": "Create Associated Token Account for a mint",
+      "requiredParams": {
+        "tokenMint": { "type": "string", "format": "base58-pubkey" }
+      },
+      "optionalParams": {
+        "owner": { "type": "string", "format": "base58-pubkey", "description": "Account owner (defaults to self)" }
+      },
+      "returns": {
+        "success": { "type": "boolean" },
+        "signature": { "type": "string", "nullable": true }
+      },
+      "estimatedFee": 0.002035,
+      "programIds": ["ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"]
+    },
+    {
+      "action": "close_account",
+      "description": "Close a token account and reclaim rent",
+      "requiredParams": {
+        "tokenAccount": { "type": "string", "format": "base58-pubkey" }
+      },
+      "optionalParams": {},
+      "returns": {
+        "success": { "type": "boolean" },
+        "reclaimedRent": { "type": "number", "unit": "SOL" }
+      },
+      "estimatedFee": 0.000005,
+      "programIds": ["TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"]
+    }
+  ],
+  "errorCodes": {
+    "ERR_PERMISSION_DENIED": "Action is not in the agent's allowedActions list",
+    "ERR_AMOUNT_EXCEEDED": "Amount exceeds maxTransactionAmount for this agent",
+    "ERR_DAILY_LIMIT": "Daily spending volume exhausted",
+    "ERR_RATE_LIMITED": "Too many transactions per minute",
+    "ERR_DESTINATION_BLOCKED": "Recipient address is not whitelisted",
+    "ERR_READ_ONLY": "Agent has READ_ONLY permission level",
+    "ERR_INSUFFICIENT_BALANCE": "Wallet balance too low (including fee reserve)",
+    "ERR_PROGRAM_BLOCKED": "Transaction includes instruction to a non-whitelisted program",
+    "ERR_POLICY_VIOLATION": "PolicyEngine rejected the transaction (check violations array)",
+    "ERR_CIRCUIT_BREAKER": "Agent halted after 3+ consecutive failures",
+    "ERR_COOLDOWN": "Agent is in cooldown period between transactions"
+  },
+  "permissionLevels": [
+    { "level": 0, "name": "READ_ONLY", "canExecute": false },
+    { "level": 1, "name": "LIMITED", "canExecute": true, "typicalUse": "Testing / junior agents" },
+    { "level": 2, "name": "STANDARD", "canExecute": true, "typicalUse": "Trading bots" },
+    { "level": 3, "name": "ELEVATED", "canExecute": true, "typicalUse": "LP agents, complex ops" },
+    { "level": 4, "name": "ADMIN", "canExecute": true, "typicalUse": "Full control" }
+  ],
+  "policyFactories": [
+    "maxPerTransaction(solLimit)",
+    "dailySpendingCap(solLimit)",
+    "dailyTransactionLimit(count)",
+    "cooldownBetweenTx(ms)",
+    "actionWhitelist(actions[])",
+    "allowedRecipients(addresses[])",
+    "allowedProgramIds(programIds[])",
+    "minimumBalanceReserve(sol, getBalance)",
+    "maxPercentOfBalance(percent, getBalance)",
+    "tradingWindow(startHourUTC, endHourUTC)"
+  ],
+  "presetBundles": {
+    "createTradingPolicies()": "0.5 SOL/tx, 5 SOL/day, 100 tx/day, 5s cooldown, program whitelist",
+    "createLiquidityPolicies()": "2 SOL/tx, 20 SOL/day, 50 tx/day, 10s cooldown, program whitelist",
+    "createMonitorPolicies()": "0 spending, memo-only"
+  }
+}
+```
 
 ---
 
