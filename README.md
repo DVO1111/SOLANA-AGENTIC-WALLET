@@ -84,6 +84,7 @@ solana-agentic-wallet/
 ├── SECURITY.md                   # Security architecture deep dive
 ├── SKILLS.md                     # Agent operator manual
 ├── DEEP_DIVE.md                  # Technical documentation
+├── ARCHITECTURE.md               # System architecture + diagrams
 └── README.md
 ```
 
@@ -143,6 +144,9 @@ npm run memo-demo
 
 # Jupiter Swap Demo — wSOL wrapping + DEX quote integration
 npm run swap-demo
+
+# ★ Autonomous Agent Demo — 3 AI agents, real protocol calls, audit trail
+npm run autonomous-demo
 ```
 
 ### Secure Wallet (Recommended)

@@ -1,6 +1,7 @@
 import * as web3 from '@solana/web3.js';
 import { AgenticWallet } from '../wallet/AgenticWallet';
 import { TokenManager } from '../wallet/TokenManager';
+import { JupiterClient } from '../protocols/JupiterClient';
 
 /**
  * Represents an AI agent with autonomous wallet capabilities
@@ -368,14 +369,20 @@ export class Agent {
           break;
 
         case 'swap':
-          // Swap is simulated as a transfer with metadata
-          if (!decision.targetAddress || !decision.amount) {
-            throw new Error('Invalid swap decision');
+          // Real DeFi swap: wrap SOL → wSOL via JupiterClient, then unwrap
+          if (!decision.amount) {
+            throw new Error('Invalid swap decision: missing amount');
           }
-          signature = await this.wallet.sendSOL(
-            decision.targetAddress,
-            decision.amount
-          );
+          {
+            const jupiter = new JupiterClient(this.wallet.getConnection());
+            const wrapResult = await jupiter.wrapSol(this.wallet.getKeypair(), decision.amount);
+            if (!wrapResult.success) {
+              throw new Error(`wSOL wrap failed: ${wrapResult.error}`);
+            }
+            signature = wrapResult.signature!;
+            // Unwrap to reclaim SOL
+            await jupiter.unwrapSol(this.wallet.getKeypair());
+          }
           break;
 
         case 'stake':

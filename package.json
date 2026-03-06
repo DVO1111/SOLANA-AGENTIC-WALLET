@@ -26,7 +26,8 @@
     "token-demo": "ts-node src/scripts/tokenInteraction.ts",
     "token-extensions": "ts-node src/scripts/tokenExtensionsDemo.ts",
     "memo-demo": "ts-node src/scripts/memoProtocolDemo.ts",
-    "swap-demo": "ts-node src/scripts/jupiterSwapDemo.ts"
+    "swap-demo": "ts-node src/scripts/jupiterSwapDemo.ts",
+    "autonomous-demo": "ts-node src/scripts/autonomousAgentDemo.ts"
   },
   "keywords": [
     "solana",

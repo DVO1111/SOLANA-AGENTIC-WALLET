@@ -56,6 +56,13 @@ export class AgenticWallet {
   }
 
   /**
+   * Get the underlying connection
+   */
+  getConnection(): web3.Connection {
+    return this.connection;
+  }
+
+  /**
    * Get formatted wallet address
    */
   getAddress(): string {
